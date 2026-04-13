@@ -1,4 +1,5 @@
 const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
 type AuthTokenPayload = {
     sub: string;
@@ -36,6 +37,32 @@ export async function createAuthToken(payload: {
     return `${encodedHeader}.${encodedPayload}.${signature}`;
 }
 
+export async function verifyAuthToken(token: string) {
+    const parts = token.split(".");
+
+    if (parts.length !== 3) {
+        return null;
+    }
+
+    const [encodedHeader, encodedPayload, signature] = parts;
+    const payload = parseBase64UrlJson<AuthTokenPayload>(encodedPayload);
+
+    if (!payload) {
+        return null;
+    }
+
+    const isValid = await verifySignature(
+        `${encodedHeader}.${encodedPayload}`,
+        signature,
+    );
+
+    if (!isValid || payload.exp <= Math.floor(Date.now() / 1000)) {
+        return null;
+    }
+
+    return payload;
+}
+
 async function sign(value: string) {
     const key = await crypto.subtle.importKey(
         "raw",
@@ -49,6 +76,31 @@ async function sign(value: string) {
     return base64UrlEncode(signature);
 }
 
+async function verifySignature(value: string, signature: string) {
+    const key = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(AUTH_TOKEN_SECRET),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["verify"],
+    );
+
+    return crypto.subtle.verify(
+        "HMAC",
+        key,
+        base64UrlDecode(signature),
+        encoder.encode(value),
+    );
+}
+
+function parseBase64UrlJson<T>(value: string) {
+    try {
+        return JSON.parse(decoder.decode(base64UrlDecode(value))) as T;
+    } catch {
+        return null;
+    }
+}
+
 function base64UrlEncode(value: string | ArrayBuffer) {
     const buffer =
         typeof value === "string" ? encoder.encode(value) : new Uint8Array(value);
@@ -58,4 +110,11 @@ function base64UrlEncode(value: string | ArrayBuffer) {
         .replace(/\+/g, "-")
         .replace(/\//g, "_")
         .replace(/=+$/g, "");
+}
+
+function base64UrlDecode(value: string) {
+    const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padding =
+        normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+    return Buffer.from(`${normalized}${padding}`, "base64");
 }

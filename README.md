@@ -37,6 +37,8 @@ npm run dev
 - `DATABASE_PATH` - путь до SQLite-файла
 - `AUTH_TOKEN_SECRET` - секрет для подписи auth-токенов
 - `AUTH_TOKEN_TTL_SECONDS` - срок жизни токена в секундах
+- `UPLOADS_DIR` - папка для сохранения аватаров и других файлов
+- `PRIVATE_STORAGE_DIR` - приватная папка для документов верификации
 
 ## Локальная БД
 
@@ -44,6 +46,8 @@ npm run dev
 - Файл по умолчанию: `./data/rent-cars.sqlite`
 - Схема лежит в `src/db/schema.sql`
 - Auth использует подписанный токен, поэтому `AUTH_TOKEN_SECRET` должен совпадать с настройкой во фронтенде
+- Аватары сохраняются в `./uploads/avatars` и раздаются через `/uploads/...`
+- Документы верификации сохраняются приватно в `./storage/verification` и не раздаются как public static
 
 ## Примеры запросов
 

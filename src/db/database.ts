@@ -42,6 +42,22 @@ function ensureUsersColumns() {
             name: "role",
             sql: "ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'",
         },
+        {
+            name: "updated_at",
+            sql: "ALTER TABLE users ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''",
+        },
+        {
+            name: "last_login_at",
+            sql: "ALTER TABLE users ADD COLUMN last_login_at TEXT",
+        },
+        {
+            name: "last_booking_at",
+            sql: "ALTER TABLE users ADD COLUMN last_booking_at TEXT",
+        },
+        {
+            name: "last_activity_at",
+            sql: "ALTER TABLE users ADD COLUMN last_activity_at TEXT",
+        },
     ];
 
     for (const migration of migrations) {
@@ -51,4 +67,10 @@ function ensureUsersColumns() {
 
         database.exec(migration.sql);
     }
+
+    database.exec(`
+        UPDATE users
+        SET updated_at = created_at
+        WHERE updated_at = ''
+    `);
 }

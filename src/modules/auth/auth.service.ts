@@ -5,6 +5,7 @@ import {
     createUserRecord,
     findUserByEmail,
     listUsers,
+    updateUserRecord,
     type StoredUser,
 } from "./auth.repository.js";
 
@@ -40,19 +41,25 @@ export type ApiAuthError = {
     message: string;
 };
 
+export type PublicUser = {
+    id: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    email: string;
+    avatarUrl?: string;
+    birthDate?: string;
+    authStatus: string;
+    role: string;
+    updatedAt?: string;
+    lastLoginAt?: string;
+    lastBookingAt?: string;
+    lastActivityAt?: string;
+};
+
 type AuthSessionResponse = {
     token: string;
-    user: {
-        id: string;
-        firstName: string;
-        lastName: string;
-        phone: string;
-        email: string;
-        avatarUrl?: string;
-        birthDate?: string;
-        authStatus: string;
-        role: string;
-    };
+    user: PublicUser;
     createdAt: string;
 };
 
@@ -78,6 +85,10 @@ export async function createUser(
         authStatus: "pending",
         role: "user",
         createdAt,
+        updatedAt: createdAt,
+        lastLoginAt: createdAt,
+        lastBookingAt: null,
+        lastActivityAt: createdAt,
     };
 
     return buildSession(createUserRecord(user));
@@ -93,7 +104,17 @@ export async function loginUser(
         throw createError(401, "Неверный email или пароль");
     }
 
-    return buildSession(user);
+    const now = new Date().toISOString();
+
+    return buildSession(
+        updateUserRecord({
+        ...user,
+        updatedAt: now,
+        lastLoginAt: now,
+        lastBookingAt: user.lastBookingAt,
+        lastActivityAt: now,
+        }),
+    );
 }
 
 export async function requestPasswordReset(
@@ -108,27 +129,31 @@ export async function getUsersForDev() {
     return listUsers().map(({ password: _password, ...user }) => user);
 }
 
+export function sanitizeUser(user: StoredUser): PublicUser {
+    return {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        email: user.email,
+        avatarUrl: user.avatarUrl ?? undefined,
+        birthDate: user.birthDate ?? undefined,
+        authStatus: user.authStatus,
+        role: user.role,
+    };
+}
+
 async function buildSession(user: StoredUser): Promise<AuthSessionResponse> {
     return {
         token: await createAuthToken({
             sub: user.id,
             email: user.email,
         }),
-        user: {
-            id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            phone: user.phone,
-            email: user.email,
-            avatarUrl: user.avatarUrl ?? undefined,
-            birthDate: user.birthDate ?? undefined,
-            authStatus: user.authStatus,
-            role: user.role,
-        },
+        user: sanitizeUser(user),
         createdAt: user.createdAt,
     };
 }
 
-function createError(status: number, message: string): ApiAuthError {
+export function createError(status: number, message: string): ApiAuthError {
     return { status, message };
 }
