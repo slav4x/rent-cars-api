@@ -51,18 +51,6 @@ CREATE TABLE IF NOT EXISTS verification_files (
 CREATE INDEX IF NOT EXISTS idx_verification_files_request_id
     ON verification_files(verification_request_id);
 
-CREATE TABLE IF NOT EXISTS user_favorites (
-    user_id TEXT NOT NULL,
-    car_id TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    PRIMARY KEY (user_id, car_id),
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (car_id) REFERENCES cars(id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_user_favorites_user_id
-    ON user_favorites(user_id);
-
 CREATE TABLE IF NOT EXISTS car_categories (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -215,3 +203,15 @@ CREATE INDEX IF NOT EXISTS idx_cars_public_slug
 
 CREATE INDEX IF NOT EXISTS idx_cars_city_id
     ON cars(city_id);
+
+CREATE TABLE IF NOT EXISTS user_favorites (
+    user_id TEXT NOT NULL,
+    car_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, car_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (car_id) REFERENCES cars(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_favorites_user_id
+    ON user_favorites(user_id);

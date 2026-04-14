@@ -1,4 +1,9 @@
-import { database } from "../../db/database.js";
+import {
+    execute,
+    queryFirst,
+    queryRows,
+    withTransaction,
+} from "../../db/database.js";
 
 export type VerificationRequestRecord = {
     id: string;
@@ -52,112 +57,115 @@ type VerificationFileRow = {
     created_at: string;
 };
 
-const findVerificationRequestByUserIdStatement = database.prepare(`
-    SELECT id, user_id, applicant_type, status, review_comment, created_at, updated_at, submitted_at, reviewed_at
-    FROM verification_requests
-    WHERE user_id = ?
-    ORDER BY created_at DESC
-    LIMIT 1
-`);
-
-const insertVerificationRequestStatement = database.prepare(`
-    INSERT INTO verification_requests (
-        id, user_id, applicant_type, status, review_comment, created_at, updated_at, submitted_at, reviewed_at
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
-
-const updateVerificationRequestStatement = database.prepare(`
-    UPDATE verification_requests
-    SET applicant_type = ?,
-        status = ?,
-        review_comment = ?,
-        updated_at = ?,
-        submitted_at = ?,
-        reviewed_at = ?
-    WHERE id = ?
-`);
-
-const findVerificationFilesByRequestIdStatement = database.prepare(`
-    SELECT id, verification_request_id, user_id, type, file_url, original_name, mime_type, size_bytes, created_at
-    FROM verification_files
-    WHERE verification_request_id = ?
-    ORDER BY created_at ASC
-`);
-
-const deleteVerificationFileByRequestAndTypeStatement = database.prepare(`
-    DELETE FROM verification_files
-    WHERE verification_request_id = ? AND type = ?
-`);
-
-const insertVerificationFileStatement = database.prepare(`
-    INSERT INTO verification_files (
-        id, verification_request_id, user_id, type, file_url, original_name, mime_type, size_bytes, created_at
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
-
-export function findLatestVerificationRequestByUserId(userId: string) {
-    const row = findVerificationRequestByUserIdStatement.get(
-        userId,
-    ) as VerificationRequestRow | undefined;
+export async function findLatestVerificationRequestByUserId(userId: string) {
+    const row = await queryFirst<VerificationRequestRow>(
+        `
+            SELECT id, user_id, applicant_type, status, review_comment, created_at, updated_at, submitted_at, reviewed_at
+            FROM verification_requests
+            WHERE user_id = $1
+            ORDER BY created_at DESC
+            LIMIT 1
+        `,
+        [userId],
+    );
     return row ? mapVerificationRequest(row) : null;
 }
 
-export function createVerificationRequest(record: VerificationRequestRecord) {
-    insertVerificationRequestStatement.run(
-        record.id,
-        record.userId,
-        record.applicantType,
-        record.status,
-        record.reviewComment,
-        record.createdAt,
-        record.updatedAt,
-        record.submittedAt,
-        record.reviewedAt,
+export async function createVerificationRequest(record: VerificationRequestRecord) {
+    await execute(
+        `
+            INSERT INTO verification_requests (
+                id, user_id, applicant_type, status, review_comment, created_at, updated_at, submitted_at, reviewed_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `,
+        [
+            record.id,
+            record.userId,
+            record.applicantType,
+            record.status,
+            record.reviewComment,
+            record.createdAt,
+            record.updatedAt,
+            record.submittedAt,
+            record.reviewedAt,
+        ],
     );
 
     return record;
 }
 
-export function updateVerificationRequest(record: VerificationRequestRecord) {
-    updateVerificationRequestStatement.run(
-        record.applicantType,
-        record.status,
-        record.reviewComment,
-        record.updatedAt,
-        record.submittedAt,
-        record.reviewedAt,
-        record.id,
+export async function updateVerificationRequest(record: VerificationRequestRecord) {
+    await execute(
+        `
+            UPDATE verification_requests
+            SET applicant_type = $1,
+                status = $2,
+                review_comment = $3,
+                updated_at = $4,
+                submitted_at = $5,
+                reviewed_at = $6
+            WHERE id = $7
+        `,
+        [
+            record.applicantType,
+            record.status,
+            record.reviewComment,
+            record.updatedAt,
+            record.submittedAt,
+            record.reviewedAt,
+            record.id,
+        ],
     );
 
     return record;
 }
 
-export function findVerificationFilesByRequestId(verificationRequestId: string) {
-    const rows = findVerificationFilesByRequestIdStatement.all(
-        verificationRequestId,
-    ) as VerificationFileRow[];
+export async function findVerificationFilesByRequestId(verificationRequestId: string) {
+    const rows = await queryRows<VerificationFileRow>(
+        `
+            SELECT id, verification_request_id, user_id, type, file_url, original_name, mime_type, size_bytes, created_at
+            FROM verification_files
+            WHERE verification_request_id = $1
+            ORDER BY created_at ASC
+        `,
+        [verificationRequestId],
+    );
     return rows.map(mapVerificationFile);
 }
 
-export function replaceVerificationFile(record: VerificationFileRecord) {
-    deleteVerificationFileByRequestAndTypeStatement.run(
-        record.verificationRequestId,
-        record.type,
-    );
+export async function replaceVerificationFile(record: VerificationFileRecord) {
+    await withTransaction(async (client) => {
+        await execute(
+            `
+                DELETE FROM verification_files
+                WHERE verification_request_id = $1 AND type = $2
+            `,
+            [record.verificationRequestId, record.type],
+            client,
+        );
 
-    insertVerificationFileStatement.run(
-        record.id,
-        record.verificationRequestId,
-        record.userId,
-        record.type,
-        record.fileUrl,
-        record.originalName,
-        record.mimeType,
-        record.sizeBytes,
-        record.createdAt,
-    );
+        await execute(
+            `
+                INSERT INTO verification_files (
+                    id, verification_request_id, user_id, type, file_url, original_name, mime_type, size_bytes, created_at
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            `,
+            [
+                record.id,
+                record.verificationRequestId,
+                record.userId,
+                record.type,
+                record.fileUrl,
+                record.originalName,
+                record.mimeType,
+                record.sizeBytes,
+                record.createdAt,
+            ],
+            client,
+        );
+    });
 
     return record;
 }

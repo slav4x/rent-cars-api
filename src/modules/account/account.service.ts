@@ -26,7 +26,7 @@ const updateAccountSchema = z
     .strict();
 
 export async function getAccountProfile(userId: string) {
-    const user = findUserById(userId);
+    const user = await findUserById(userId);
 
     if (!user) {
         throw createError(404, "Пользователь не найден");
@@ -37,21 +37,21 @@ export async function getAccountProfile(userId: string) {
 
 export async function updateAccountProfile(userId: string, payload: unknown) {
     const updates = updateAccountSchema.parse(payload);
-    const user = findUserById(userId);
+    const user = await findUserById(userId);
 
     if (!user) {
         throw createError(404, "Пользователь не найден");
     }
 
     if (updates.email && updates.email !== user.email) {
-        const existingUser = findUserByEmail(updates.email);
+        const existingUser = await findUserByEmail(updates.email);
 
         if (existingUser && existingUser.id !== user.id) {
             throw createError(409, "Пользователь с таким email уже существует");
         }
     }
 
-    const updatedUser = updateUserRecord({
+    const updatedUser = await updateUserRecord({
         ...user,
         firstName: updates.firstName ?? user.firstName,
         lastName: updates.lastName ?? user.lastName,
@@ -72,7 +72,7 @@ export async function updateAccountAvatar(params: {
     mimeType: string;
     baseUrl: string;
 }) {
-    const user = findUserById(params.userId);
+    const user = await findUserById(params.userId);
 
     if (!user) {
         throw createError(404, "Пользователь не найден");
@@ -85,7 +85,7 @@ export async function updateAccountAvatar(params: {
         currentAvatarUrl: user.avatarUrl,
     });
 
-    const updatedUser = updateUserRecord({
+    const updatedUser = await updateUserRecord({
         ...user,
         avatarUrl: `${params.baseUrl}${relativeAvatarUrl}`,
         updatedAt: new Date().toISOString(),

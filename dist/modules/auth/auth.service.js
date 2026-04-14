@@ -25,13 +25,13 @@ const resetPasswordSchema = z
     .strict();
 export async function createUser(payload) {
     const data = registerSchema.parse(payload);
-    const existingUser = findUserByEmail(data.email);
+    const existingUser = await findUserByEmail(data.email);
     if (existingUser && existingUser.role !== "guest") {
         throw createError(409, "Пользователь с таким email уже существует");
     }
     if (existingUser?.role === "guest") {
         const now = new Date().toISOString();
-        return buildSession(updateUserRecord({
+        return buildSession(await updateUserRecord({
             ...existingUser,
             firstName: data.firstName,
             lastName: data.lastName,
@@ -61,11 +61,11 @@ export async function createUser(payload) {
         lastBookingAt: null,
         lastActivityAt: createdAt,
     };
-    return buildSession(createUserRecord(user));
+    return buildSession(await createUserRecord(user));
 }
 export async function loginUser(payload) {
     const data = loginSchema.parse(payload);
-    const user = findUserByEmail(data.email);
+    const user = await findUserByEmail(data.email);
     if (!user || !verifyPassword(data.password, user.password)) {
         throw createError(401, "Неверный email или пароль");
     }
@@ -73,7 +73,7 @@ export async function loginUser(payload) {
         throw createError(403, "Гостевой аккаунт неактивен. Завершите регистрацию с этой же почтой, чтобы активировать его.");
     }
     const now = new Date().toISOString();
-    return buildSession(updateUserRecord({
+    return buildSession(await updateUserRecord({
         ...user,
         updatedAt: now,
         lastLoginAt: now,
@@ -86,15 +86,18 @@ export async function requestPasswordReset(payload) {
     return { ok: true };
 }
 export async function getUsersForDev() {
-    return listUsers().map(({ password: _password, ...user }) => user);
+    return (await listUsers()).map((storedUser) => {
+        const { password: _password, ...user } = storedUser;
+        return user;
+    });
 }
 export async function getPanelUsers() {
-    return listUsers()
+    return (await listUsers())
         .filter((user) => user.role !== "user" && user.role !== "guest")
         .map(sanitizeUser);
 }
 export async function getAllUsersForPanel() {
-    return listUsers()
+    return (await listUsers())
         .filter((user) => user.role === "user")
         .map(sanitizeUser);
 }

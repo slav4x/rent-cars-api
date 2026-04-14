@@ -1,33 +1,31 @@
-import { database } from "../../db/database.js";
-const listFavoriteCarIdsStatement = database.prepare(`
-    SELECT car_id
-    FROM user_favorites
-    WHERE user_id = ?
-    ORDER BY created_at DESC
-`);
-const insertFavoriteStatement = database.prepare(`
-    INSERT OR IGNORE INTO user_favorites (user_id, car_id, created_at)
-    VALUES (?, ?, ?)
-`);
-const deleteFavoriteStatement = database.prepare(`
-    DELETE FROM user_favorites
-    WHERE user_id = ? AND car_id = ?
-`);
-const hasFavoriteStatement = database.prepare(`
-    SELECT user_id, car_id, created_at
-    FROM user_favorites
-    WHERE user_id = ? AND car_id = ?
-`);
-export function listFavoriteCarIds(userId) {
-    const rows = listFavoriteCarIdsStatement.all(userId);
+import { execute, queryFirst, queryRows } from "../../db/database.js";
+export async function listFavoriteCarIds(userId) {
+    const rows = await queryRows(`
+            SELECT car_id
+            FROM user_favorites
+            WHERE user_id = $1
+            ORDER BY created_at DESC
+        `, [userId]);
     return rows.map((row) => row.car_id);
 }
-export function addFavoriteRecord(userId, carId, createdAt) {
-    insertFavoriteStatement.run(userId, carId, createdAt);
+export async function addFavoriteRecord(userId, carId, createdAt) {
+    await execute(`
+            INSERT INTO user_favorites (user_id, car_id, created_at)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id, car_id) DO NOTHING
+        `, [userId, carId, createdAt]);
 }
-export function removeFavoriteRecord(userId, carId) {
-    deleteFavoriteStatement.run(userId, carId);
+export async function removeFavoriteRecord(userId, carId) {
+    await execute(`
+            DELETE FROM user_favorites
+            WHERE user_id = $1 AND car_id = $2
+        `, [userId, carId]);
 }
-export function hasFavoriteRecord(userId, carId) {
-    return Boolean(hasFavoriteStatement.get(userId, carId));
+export async function hasFavoriteRecord(userId, carId) {
+    const row = await queryFirst(`
+            SELECT user_id, car_id, created_at
+            FROM user_favorites
+            WHERE user_id = $1 AND car_id = $2
+        `, [userId, carId]);
+    return Boolean(row);
 }

@@ -47,54 +47,53 @@ const carPayloadSchema = z
 
 export async function getCarOptions() {
     return {
-        categories: listCarCategories(),
-        cities: listCarCities(),
-        brands: listCarBrands(),
-        colors: listCarColors(),
-        bodyTypes: listCarBodyTypes(),
+        categories: await listCarCategories(),
+        cities: await listCarCities(),
+        brands: await listCarBrands(),
+        colors: await listCarColors(),
+        bodyTypes: await listCarBodyTypes(),
     };
 }
 
 export async function getCarsForPanel() {
-    const lookups = buildCarLookups();
-    return listCars().map((car) => sanitizeCar(car, lookups));
+    const lookups = await buildCarLookups();
+    return (await listCars()).map((car: CarRecord) => sanitizeCar(car, lookups));
 }
 
 export async function getCarForPanel(id: string) {
-    const car = findCarById(id);
+    const car = await findCarById(id);
 
     if (!car) {
         throw createError(404, "Автомобиль не найден");
     }
 
-    return sanitizeCar(car, buildCarLookups());
+    return sanitizeCar(car, await buildCarLookups());
 }
 
 export async function getCarsForPublic() {
-    const lookups = buildCarLookups();
-    return listCars().map((car) => sanitizeCar(car, lookups));
+    const lookups = await buildCarLookups();
+    return (await listCars()).map((car: CarRecord) => sanitizeCar(car, lookups));
 }
 
 export async function getCarByPublicSlug(publicSlug: string) {
-    const car = findCarByPublicSlug(publicSlug);
+    const car = await findCarByPublicSlug(publicSlug);
 
     if (!car) {
         throw createError(404, "Автомобиль не найден");
     }
 
-    return sanitizeCar(car, buildCarLookups());
+    return sanitizeCar(car, await buildCarLookups());
 }
 
 export async function createCar(payload: unknown) {
     const data = carPayloadSchema.parse(payload);
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
-    const publicSlug = generateUniqueCarSlug(data.title);
-
-    const lookups = buildCarLookups();
+    const publicSlug = await generateUniqueCarSlug(data.title);
+    const lookups = await buildCarLookups();
 
     return sanitizeCar(
-        createCarRecord({
+        await createCarRecord({
             id,
             publicSlug,
             rentProgId: normalizeOptional(data.rentProgId),
@@ -129,7 +128,7 @@ export async function createCar(payload: unknown) {
 
 export async function updateCar(id: string, payload: unknown) {
     const data = carPayloadSchema.parse(payload);
-    const car = findCarById(id);
+    const car = await findCarById(id);
 
     if (!car) {
         throw createError(404, "Автомобиль не найден");
@@ -137,13 +136,12 @@ export async function updateCar(id: string, payload: unknown) {
 
     const shouldRegenerateSlug = car.title !== data.title;
     const publicSlug = shouldRegenerateSlug
-        ? generateUniqueCarSlug(data.title, car.id)
+        ? await generateUniqueCarSlug(data.title, car.id)
         : car.publicSlug;
-
-    const lookups = buildCarLookups();
+    const lookups = await buildCarLookups();
 
     return sanitizeCar(
-        updateCarRecord({
+        await updateCarRecord({
             ...car,
             publicSlug,
             rentProgId: normalizeOptional(data.rentProgId),
@@ -177,7 +175,7 @@ export async function updateCar(id: string, payload: unknown) {
 
 export function sanitizeCar(
     car: CarRecord,
-    lookups = buildCarLookups(),
+    lookups?: Awaited<ReturnType<typeof buildCarLookups>>,
 ) {
     return {
         id: car.id,
@@ -185,16 +183,16 @@ export function sanitizeCar(
         rentProgId: car.rentProgId ?? undefined,
         title: car.title,
         categoryId: car.categoryId,
-        categoryName: lookups.categories.get(car.categoryId) ?? car.categoryId,
+        categoryName: lookups?.categories.get(car.categoryId) ?? car.categoryId,
         cityId: car.cityId,
-        cityName: lookups.cities.get(car.cityId) ?? car.cityId,
+        cityName: lookups?.cities.get(car.cityId) ?? car.cityId,
         brandId: car.brandId,
-        brandName: lookups.brands.get(car.brandId) ?? car.brandId,
+        brandName: lookups?.brands.get(car.brandId) ?? car.brandId,
         colorId: car.colorId,
-        colorName: lookups.colors.get(car.colorId) ?? car.colorId,
+        colorName: lookups?.colors.get(car.colorId) ?? car.colorId,
         bodyTypeId: car.bodyTypeId ?? undefined,
         bodyTypeName: car.bodyTypeId
-            ? (lookups.bodyTypes.get(car.bodyTypeId) ?? car.bodyTypeId)
+            ? (lookups?.bodyTypes.get(car.bodyTypeId) ?? car.bodyTypeId)
             : undefined,
         seatCount: car.seatCount ?? undefined,
         videoUrl: car.videoUrl ?? undefined,
@@ -217,13 +215,13 @@ export function sanitizeCar(
     };
 }
 
-function generateUniqueCarSlug(title: string, currentCarId?: string) {
+async function generateUniqueCarSlug(title: string, currentCarId?: string) {
     const baseSlug = slugify(title) || "car";
     let candidate = baseSlug;
     let suffix = 2;
 
     while (true) {
-        const existingCar = findCarByPublicSlug(candidate);
+        const existingCar = await findCarByPublicSlug(candidate);
 
         if (!existingCar || existingCar.id === currentCarId) {
             return candidate;
@@ -250,16 +248,37 @@ function normalizeOptional(value?: string) {
     return value.trim() || null;
 }
 
-function buildCarLookups() {
+async function buildCarLookups() {
     return {
         categories: new Map(
-            listCarCategories().map((option) => [option.id, option.name]),
+            (await listCarCategories()).map((option: { id: string; name: string }) => [
+                option.id,
+                option.name,
+            ]),
         ),
-        cities: new Map(listCarCities().map((option) => [option.id, option.name])),
-        brands: new Map(listCarBrands().map((option) => [option.id, option.name])),
-        colors: new Map(listCarColors().map((option) => [option.id, option.name])),
+        cities: new Map(
+            (await listCarCities()).map((option: { id: string; name: string }) => [
+                option.id,
+                option.name,
+            ]),
+        ),
+        brands: new Map(
+            (await listCarBrands()).map((option: { id: string; name: string }) => [
+                option.id,
+                option.name,
+            ]),
+        ),
+        colors: new Map(
+            (await listCarColors()).map((option: { id: string; name: string }) => [
+                option.id,
+                option.name,
+            ]),
+        ),
         bodyTypes: new Map(
-            listCarBodyTypes().map((option) => [option.id, option.name]),
+            (await listCarBodyTypes()).map((option: { id: string; name: string }) => [
+                option.id,
+                option.name,
+            ]),
         ),
     };
 }

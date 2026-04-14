@@ -3,27 +3,27 @@ import { sanitizeCar } from "../cars/cars.service.js";
 import { createError } from "../auth/auth.service.js";
 import { addFavoriteRecord, hasFavoriteRecord, listFavoriteCarIds, removeFavoriteRecord, } from "./favorites.repository.js";
 export async function getFavoriteCars(userId) {
-    const favoriteIds = listFavoriteCarIds(userId);
+    const favoriteIds = await listFavoriteCarIds(userId);
     const idSet = new Set(favoriteIds);
-    return listCars()
+    return (await listCars())
         .filter((car) => idSet.has(car.id))
         .sort((left, right) => favoriteIds.indexOf(left.id) - favoriteIds.indexOf(right.id))
         .map((car) => sanitizeCar(car));
 }
 export async function getFavoriteCarIds(userId) {
-    return listFavoriteCarIds(userId);
+    return await listFavoriteCarIds(userId);
 }
 export async function addFavorite(userId, carId) {
-    const car = findCarById(carId);
+    const car = await findCarById(carId);
     if (!car) {
         throw createError(404, "Автомобиль не найден");
     }
-    if (!hasFavoriteRecord(userId, carId)) {
-        addFavoriteRecord(userId, carId, new Date().toISOString());
+    if (!(await hasFavoriteRecord(userId, carId))) {
+        await addFavoriteRecord(userId, carId, new Date().toISOString());
     }
     return getFavoriteCarIds(userId);
 }
 export async function removeFavorite(userId, carId) {
-    removeFavoriteRecord(userId, carId);
+    await removeFavoriteRecord(userId, carId);
     return getFavoriteCarIds(userId);
 }

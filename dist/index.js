@@ -38,7 +38,7 @@ app.get("/health", (_request, response) => {
     response.json({
         ok: true,
         service: "rent-cars-api",
-        databasePath: getDatabasePath(),
+        databaseUrl: getDatabasePath(),
         now: new Date().toISOString(),
     });
 });

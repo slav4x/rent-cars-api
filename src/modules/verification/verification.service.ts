@@ -37,8 +37,8 @@ const requiredFileTypes: VerificationFileRecord["type"][] = [
 ];
 
 export async function getVerificationOverview(userId: string) {
-    const request = ensureVerificationRequest(userId);
-    const files = findVerificationFilesByRequestId(request.id);
+    const request = await ensureVerificationRequest(userId);
+    const files = await findVerificationFilesByRequestId(request.id);
 
     return {
         request,
@@ -53,11 +53,11 @@ export async function uploadVerificationFile(params: {
     mimeType: string;
     originalName: string;
 }) {
-    ensureVerificationUser(params.userId);
+    await ensureVerificationUser(params.userId);
     const documentType = documentTypeSchema.parse(params.documentType);
-    const request = ensureVerificationRequest(params.userId);
-    const previousFile = findVerificationFilesByRequestId(request.id).find(
-        (file) => file.type === documentType,
+    const request = await ensureVerificationRequest(params.userId);
+    const previousFile = (await findVerificationFilesByRequestId(request.id)).find(
+        (file: VerificationFileRecord) => file.type === documentType,
     );
 
     const savedFile = savePrivateVerificationFile({
@@ -71,7 +71,7 @@ export async function uploadVerificationFile(params: {
     });
 
     const now = new Date().toISOString();
-    replaceVerificationFile({
+    await replaceVerificationFile({
         id: crypto.randomUUID(),
         verificationRequestId: request.id,
         userId: params.userId,
@@ -83,7 +83,7 @@ export async function uploadVerificationFile(params: {
         createdAt: now,
     });
 
-    updateVerificationRequest({
+    await updateVerificationRequest({
         ...request,
         updatedAt: now,
         status: request.status === "approved" ? "approved" : "draft",
@@ -91,7 +91,7 @@ export async function uploadVerificationFile(params: {
         reviewedAt: null,
     });
 
-    updateUserActivity(params.userId, {
+    await updateUserActivity(params.userId, {
         lastActivityAt: now,
     });
 
@@ -99,11 +99,13 @@ export async function uploadVerificationFile(params: {
 }
 
 export async function submitVerificationRequest(userId: string, payload: unknown) {
-    ensureVerificationUser(userId);
+    await ensureVerificationUser(userId);
     const data = submitVerificationSchema.parse(payload);
-    const request = ensureVerificationRequest(userId);
-    const files = findVerificationFilesByRequestId(request.id);
-    const uploadedTypes = new Set(files.map((file) => file.type));
+    const request = await ensureVerificationRequest(userId);
+    const files = await findVerificationFilesByRequestId(request.id);
+    const uploadedTypes = new Set(
+        files.map((file: VerificationFileRecord) => file.type),
+    );
 
     for (const type of requiredFileTypes) {
         if (!uploadedTypes.has(type)) {
@@ -113,7 +115,7 @@ export async function submitVerificationRequest(userId: string, payload: unknown
 
     const now = new Date().toISOString();
 
-    const updatedRequest = updateVerificationRequest({
+    const updatedRequest = await updateVerificationRequest({
         ...request,
         applicantType: data.applicantType,
         status: "pending",
@@ -123,7 +125,7 @@ export async function submitVerificationRequest(userId: string, payload: unknown
         reviewedAt: null,
     });
 
-    updateUserActivity(userId, {
+    await updateUserActivity(userId, {
         authStatus: "pending",
         lastActivityAt: now,
     });
@@ -134,8 +136,8 @@ export async function submitVerificationRequest(userId: string, payload: unknown
     };
 }
 
-function ensureVerificationUser(userId: string) {
-    const user = findUserById(userId);
+async function ensureVerificationUser(userId: string) {
+    const user = await findUserById(userId);
 
     if (!user) {
         throw createError(404, "Пользователь не найден");
@@ -144,8 +146,8 @@ function ensureVerificationUser(userId: string) {
     return user;
 }
 
-function ensureVerificationRequest(userId: string) {
-    const existingRequest = findLatestVerificationRequestByUserId(userId);
+async function ensureVerificationRequest(userId: string) {
+    const existingRequest = await findLatestVerificationRequestByUserId(userId);
 
     if (existingRequest) {
         return existingRequest;
@@ -153,7 +155,7 @@ function ensureVerificationRequest(userId: string) {
 
     const now = new Date().toISOString();
 
-    return createVerificationRequest({
+    return await createVerificationRequest({
         id: crypto.randomUUID(),
         userId,
         applicantType: "citizen_rf",
@@ -166,7 +168,7 @@ function ensureVerificationRequest(userId: string) {
     });
 }
 
-function updateUserActivity(
+async function updateUserActivity(
     userId: string,
     updates: Partial<{
         authStatus: string;
@@ -176,7 +178,7 @@ function updateUserActivity(
         updatedAt: string;
     }>,
 ) {
-    const user = findUserById(userId);
+    const user = await findUserById(userId);
 
     if (!user) {
         return;
@@ -184,7 +186,7 @@ function updateUserActivity(
 
     const now = updates.updatedAt ?? new Date().toISOString();
 
-    updateUserRecord({
+    await updateUserRecord({
         ...user,
         authStatus: updates.authStatus ?? user.authStatus,
         updatedAt: now,

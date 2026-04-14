@@ -8,7 +8,7 @@
 - `POST /api/auth/register` - регистрация пользователя
 - `POST /api/auth/login` - вход
 - `POST /api/auth/reset-password` - имитация сброса пароля
-- `GET /api/dev/users` - список пользователей из локальной SQLite-базы без паролей
+- `GET /api/dev/users` - список пользователей из локальной PostgreSQL-базы без паролей
 - `GET /api/panel/admins` - список пользователей для админки, кроме ролей `user` и `guest`
 - `GET /api/panel/users` - список обычных пользователей с ролью `user`
 - `GET /api/panel/car-options` - справочники категорий, городов, марок, цветов и типов кузова
@@ -32,13 +32,19 @@
 npm install
 ```
 
-2. Создать env:
+2. Поднять локальный PostgreSQL:
+
+```bash
+npm run db:up
+```
+
+3. Создать env:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Запустить dev-сервер:
+4. Запустить dev-сервер:
 
 ```bash
 npm run dev
@@ -48,7 +54,8 @@ npm run dev
 
 - `PORT` - порт API, по умолчанию `4000`
 - `CLIENT_ORIGIN` - origin фронтенда для CORS
-- `DATABASE_PATH` - путь до SQLite-файла
+- `DATABASE_URL` - строка подключения к PostgreSQL
+- `DATABASE_SSL` - включить SSL для managed Postgres, например Timeweb Cloud
 - `AUTH_TOKEN_SECRET` - секрет для подписи auth-токенов
 - `AUTH_TOKEN_TTL_SECONDS` - срок жизни токена в секундах
 - `UPLOADS_DIR` - папка для сохранения аватаров и других файлов
@@ -56,8 +63,9 @@ npm run dev
 
 ## Локальная БД
 
-- База создается автоматически при старте
-- Файл по умолчанию: `./data/rent-cars.sqlite`
+- База инициализируется автоматически при старте API
+- Локально Postgres поднимается через `docker compose` из `docker-compose.yml`
+- По умолчанию используется `postgresql://rentcars:rentcars@localhost:5432/rentcars`
 - Схема лежит в `src/db/schema.sql`
 - Auth использует подписанный токен, поэтому `AUTH_TOKEN_SECRET` должен совпадать с настройкой во фронтенде
 - Аватары сохраняются в `./uploads/avatars` и раздаются через `/uploads/...`
@@ -68,6 +76,12 @@ npm run dev
 - Для каждого автомобиля сохраняется `public_slug`, который генерируется из названия и автоматически дедуплицируется через `-2`, `-3` и дальше по необходимости
 - Для тарифов автомобиля поддерживаются цены на `сутки`, `2-7 дней`, `от 7 дней`, `от 30 суток`, `от 60 суток`
 - Для каждого автомобиля можно сохранять `тип кузова` и `кол-во мест`
+
+## Timeweb Cloud
+
+- Для деплоя в Timeweb Cloud достаточно заменить `DATABASE_URL` на строку подключения от managed PostgreSQL
+- Если кластер требует защищённое подключение, установи `DATABASE_SSL=true`
+- Локальная схема и продовая используют один и тот же `src/db/schema.sql`
 
 ## Роли пользователей
 

@@ -1,4 +1,4 @@
-import { database } from "../../db/database.js";
+import { queryFirst, queryRows, execute } from "../../db/database.js";
 
 export type StoredUser = {
     id: string;
@@ -36,103 +36,114 @@ type UserRow = {
     last_activity_at: string | null;
 };
 
-const insertUserStatement = database.prepare(`
-    INSERT INTO users (
-        id, first_name, last_name, phone, email, password, avatar_url, birth_date, auth_status, role, created_at, updated_at, last_login_at, last_booking_at, last_activity_at
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
-
-const findUserByEmailStatement = database.prepare(`
-    SELECT id, first_name, last_name, phone, email, password, avatar_url, birth_date, auth_status, role, created_at, updated_at, last_login_at, last_booking_at, last_activity_at
-    FROM users
-    WHERE email = ?
-`);
-
-const findUserByIdStatement = database.prepare(`
-    SELECT id, first_name, last_name, phone, email, password, avatar_url, birth_date, auth_status, role, created_at, updated_at, last_login_at, last_booking_at, last_activity_at
-    FROM users
-    WHERE id = ?
-`);
-
-const listUsersStatement = database.prepare(`
-    SELECT id, first_name, last_name, phone, email, password, avatar_url, birth_date, auth_status, role, created_at, updated_at, last_login_at, last_booking_at, last_activity_at
-    FROM users
-    ORDER BY created_at DESC
-`);
-
-const updateUserStatement = database.prepare(`
-    UPDATE users
-    SET
-        first_name = ?,
-        last_name = ?,
-        phone = ?,
-        email = ?,
-        password = ?,
-        avatar_url = ?,
-        birth_date = ?,
-        auth_status = ?,
-        role = ?,
-        updated_at = ?,
-        last_login_at = ?,
-        last_booking_at = ?,
-        last_activity_at = ?
-    WHERE id = ?
-`);
-
-export function createUserRecord(user: StoredUser) {
-    insertUserStatement.run(
-        user.id,
-        user.firstName,
-        user.lastName,
-        user.phone,
-        user.email,
-        user.password,
-        user.avatarUrl,
-        user.birthDate,
-        user.authStatus,
-        user.role,
-        user.createdAt,
-        user.updatedAt,
-        user.lastLoginAt,
-        user.lastBookingAt,
-        user.lastActivityAt,
+export async function createUserRecord(user: StoredUser) {
+    await execute(
+        `
+            INSERT INTO users (
+                id, first_name, last_name, phone, email, password, avatar_url, birth_date,
+                auth_status, role, created_at, updated_at, last_login_at, last_booking_at, last_activity_at
+            )
+            VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8,
+                $9, $10, $11, $12, $13, $14, $15
+            )
+        `,
+        [
+            user.id,
+            user.firstName,
+            user.lastName,
+            user.phone,
+            user.email,
+            user.password,
+            user.avatarUrl,
+            user.birthDate,
+            user.authStatus,
+            user.role,
+            user.createdAt,
+            user.updatedAt,
+            user.lastLoginAt,
+            user.lastBookingAt,
+            user.lastActivityAt,
+        ],
     );
 
     return user;
 }
 
-export function findUserByEmail(email: string) {
-    const row = findUserByEmailStatement.get(email) as UserRow | undefined;
+export async function findUserByEmail(email: string) {
+    const row = await queryFirst<UserRow>(
+        `
+            SELECT id, first_name, last_name, phone, email, password, avatar_url, birth_date,
+                   auth_status, role, created_at, updated_at, last_login_at, last_booking_at, last_activity_at
+            FROM users
+            WHERE email = $1
+        `,
+        [email],
+    );
     return row ? mapUser(row) : null;
 }
 
-export function findUserById(id: string) {
-    const row = findUserByIdStatement.get(id) as UserRow | undefined;
+export async function findUserById(id: string) {
+    const row = await queryFirst<UserRow>(
+        `
+            SELECT id, first_name, last_name, phone, email, password, avatar_url, birth_date,
+                   auth_status, role, created_at, updated_at, last_login_at, last_booking_at, last_activity_at
+            FROM users
+            WHERE id = $1
+        `,
+        [id],
+    );
     return row ? mapUser(row) : null;
 }
 
-export function listUsers() {
-    const rows = listUsersStatement.all() as UserRow[];
+export async function listUsers() {
+    const rows = await queryRows<UserRow>(
+        `
+            SELECT id, first_name, last_name, phone, email, password, avatar_url, birth_date,
+                   auth_status, role, created_at, updated_at, last_login_at, last_booking_at, last_activity_at
+            FROM users
+            ORDER BY created_at DESC
+        `,
+    );
     return rows.map(mapUser);
 }
 
-export function updateUserRecord(user: StoredUser) {
-    updateUserStatement.run(
-        user.firstName,
-        user.lastName,
-        user.phone,
-        user.email,
-        user.password,
-        user.avatarUrl,
-        user.birthDate,
-        user.authStatus,
-        user.role,
-        user.updatedAt,
-        user.lastLoginAt,
-        user.lastBookingAt,
-        user.lastActivityAt,
-        user.id,
+export async function updateUserRecord(user: StoredUser) {
+    await execute(
+        `
+            UPDATE users
+            SET
+                first_name = $1,
+                last_name = $2,
+                phone = $3,
+                email = $4,
+                password = $5,
+                avatar_url = $6,
+                birth_date = $7,
+                auth_status = $8,
+                role = $9,
+                updated_at = $10,
+                last_login_at = $11,
+                last_booking_at = $12,
+                last_activity_at = $13
+            WHERE id = $14
+        `,
+        [
+            user.firstName,
+            user.lastName,
+            user.phone,
+            user.email,
+            user.password,
+            user.avatarUrl,
+            user.birthDate,
+            user.authStatus,
+            user.role,
+            user.updatedAt,
+            user.lastLoginAt,
+            user.lastBookingAt,
+            user.lastActivityAt,
+            user.id,
+        ],
     );
 
     return user;
