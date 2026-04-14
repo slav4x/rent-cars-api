@@ -104,6 +104,14 @@ function ensureCarsColumns() {
             "ALTER TABLE cars ADD COLUMN price_from_60_days INTEGER NOT NULL DEFAULT 0",
         );
     }
+
+    if (!existingColumns.has("body_type_id")) {
+        database.exec("ALTER TABLE cars ADD COLUMN body_type_id TEXT");
+    }
+
+    if (!existingColumns.has("seat_count")) {
+        database.exec("ALTER TABLE cars ADD COLUMN seat_count INTEGER");
+    }
 }
 
 function syncCarReferenceData() {

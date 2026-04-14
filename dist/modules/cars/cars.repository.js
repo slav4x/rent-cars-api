@@ -16,13 +16,13 @@ const findCarByPublicSlugStatement = database.prepare(`
 `);
 const insertCarStatement = database.prepare(`
     INSERT INTO cars (
-        id, public_slug, rentprog_id, title, category_id, city_id, brand_id, color_id, video_url,
-        horsepower, zero_to_hundred, fuel_type, transmission_type, description_html,
+        id, public_slug, rentprog_id, title, category_id, city_id, brand_id, color_id, body_type_id,
+        seat_count, video_url, horsepower, zero_to_hundred, fuel_type, transmission_type, description_html,
         price_per_day, price_2_7_days, price_from_7_days, price_from_30_days, price_from_60_days,
         overage_price_per_km, seo_title, seo_description_html, media_urls,
         created_at, updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 const updateCarStatement = database.prepare(`
     UPDATE cars
@@ -34,6 +34,8 @@ const updateCarStatement = database.prepare(`
         city_id = ?,
         brand_id = ?,
         color_id = ?,
+        body_type_id = ?,
+        seat_count = ?,
         video_url = ?,
         horsepower = ?,
         zero_to_hundred = ?,
@@ -72,6 +74,11 @@ const listColorsStatement = database.prepare(`
     FROM car_colors
     ORDER BY sort_order ASC, name ASC
 `);
+const listBodyTypesStatement = database.prepare(`
+    SELECT id, name
+    FROM car_body_types
+    ORDER BY sort_order ASC, name ASC
+`);
 export function listCars() {
     const rows = listCarsStatement.all();
     return rows.map(mapCar);
@@ -85,11 +92,11 @@ export function findCarByPublicSlug(publicSlug) {
     return row ? mapCar(row) : null;
 }
 export function createCarRecord(car) {
-    insertCarStatement.run(car.id, car.publicSlug, car.rentProgId, car.title, car.categoryId, car.cityId, car.brandId, car.colorId, car.videoUrl, car.horsepower, car.zeroToHundred, car.fuelType, car.transmissionType, car.descriptionHtml, car.pricePerDay, car.price2to7Days, car.priceFrom7Days, car.priceFrom30Days, car.priceFrom60Days, car.overagePricePerKm, car.seoTitle, car.seoDescriptionHtml, JSON.stringify(car.mediaUrls), car.createdAt, car.updatedAt);
+    insertCarStatement.run(car.id, car.publicSlug, car.rentProgId, car.title, car.categoryId, car.cityId, car.brandId, car.colorId, car.bodyTypeId, car.seatCount, car.videoUrl, car.horsepower, car.zeroToHundred, car.fuelType, car.transmissionType, car.descriptionHtml, car.pricePerDay, car.price2to7Days, car.priceFrom7Days, car.priceFrom30Days, car.priceFrom60Days, car.overagePricePerKm, car.seoTitle, car.seoDescriptionHtml, JSON.stringify(car.mediaUrls), car.createdAt, car.updatedAt);
     return car;
 }
 export function updateCarRecord(car) {
-    updateCarStatement.run(car.publicSlug, car.rentProgId, car.title, car.categoryId, car.cityId, car.brandId, car.colorId, car.videoUrl, car.horsepower, car.zeroToHundred, car.fuelType, car.transmissionType, car.descriptionHtml, car.pricePerDay, car.price2to7Days, car.priceFrom7Days, car.priceFrom30Days, car.priceFrom60Days, car.overagePricePerKm, car.seoTitle, car.seoDescriptionHtml, JSON.stringify(car.mediaUrls), car.updatedAt, car.id);
+    updateCarStatement.run(car.publicSlug, car.rentProgId, car.title, car.categoryId, car.cityId, car.brandId, car.colorId, car.bodyTypeId, car.seatCount, car.videoUrl, car.horsepower, car.zeroToHundred, car.fuelType, car.transmissionType, car.descriptionHtml, car.pricePerDay, car.price2to7Days, car.priceFrom7Days, car.priceFrom30Days, car.priceFrom60Days, car.overagePricePerKm, car.seoTitle, car.seoDescriptionHtml, JSON.stringify(car.mediaUrls), car.updatedAt, car.id);
     return car;
 }
 export function listCarCategories() {
@@ -104,6 +111,9 @@ export function listCarBrands() {
 export function listCarColors() {
     return listColorsStatement.all();
 }
+export function listCarBodyTypes() {
+    return listBodyTypesStatement.all();
+}
 function mapCar(row) {
     return {
         id: row.id,
@@ -114,6 +124,8 @@ function mapCar(row) {
         cityId: row.city_id,
         brandId: row.brand_id,
         colorId: row.color_id,
+        bodyTypeId: row.body_type_id,
+        seatCount: row.seat_count,
         videoUrl: row.video_url,
         horsepower: row.horsepower,
         zeroToHundred: row.zero_to_hundred,

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createCarRecord, findCarById, findCarByPublicSlug, listCarBrands, listCarCategories, listCarCities, listCarColors, listCars, updateCarRecord, } from "./cars.repository.js";
+import { createCarRecord, findCarById, findCarByPublicSlug, listCarBodyTypes, listCarBrands, listCarCategories, listCarCities, listCarColors, listCars, updateCarRecord, } from "./cars.repository.js";
 import { createError } from "../auth/auth.service.js";
 const fuelTypeSchema = z.enum(["petrol", "diesel", "hybrid"]);
 const transmissionTypeSchema = z.enum(["automatic", "robot", "manual"]);
@@ -11,6 +11,8 @@ const carPayloadSchema = z
     cityId: z.string().trim().min(1, "Выберите город"),
     brandId: z.string().trim().min(1, "Выберите марку"),
     colorId: z.string().trim().min(1, "Выберите цвет"),
+    bodyTypeId: z.string().trim().min(1, "Выберите тип кузова"),
+    seatCount: z.coerce.number().int().positive().optional(),
     videoUrl: z.string().trim().optional(),
     horsepower: z.coerce.number().int().nonnegative().optional(),
     zeroToHundred: z.coerce.number().nonnegative().optional(),
@@ -34,6 +36,7 @@ export async function getCarOptions() {
         cities: listCarCities(),
         brands: listCarBrands(),
         colors: listCarColors(),
+        bodyTypes: listCarBodyTypes(),
     };
 }
 export async function getCarsForPanel() {
@@ -73,6 +76,8 @@ export async function createCar(payload) {
         cityId: data.cityId,
         brandId: data.brandId,
         colorId: data.colorId,
+        bodyTypeId: data.bodyTypeId,
+        seatCount: data.seatCount ?? null,
         videoUrl: normalizeOptional(data.videoUrl),
         horsepower: data.horsepower ?? null,
         zeroToHundred: data.zeroToHundred ?? null,
@@ -112,6 +117,8 @@ export async function updateCar(id, payload) {
         cityId: data.cityId,
         brandId: data.brandId,
         colorId: data.colorId,
+        bodyTypeId: data.bodyTypeId,
+        seatCount: data.seatCount ?? null,
         videoUrl: normalizeOptional(data.videoUrl),
         horsepower: data.horsepower ?? null,
         zeroToHundred: data.zeroToHundred ?? null,
@@ -144,6 +151,11 @@ export function sanitizeCar(car, lookups = buildCarLookups()) {
         brandName: lookups.brands.get(car.brandId) ?? car.brandId,
         colorId: car.colorId,
         colorName: lookups.colors.get(car.colorId) ?? car.colorId,
+        bodyTypeId: car.bodyTypeId ?? undefined,
+        bodyTypeName: car.bodyTypeId
+            ? (lookups.bodyTypes.get(car.bodyTypeId) ?? car.bodyTypeId)
+            : undefined,
+        seatCount: car.seatCount ?? undefined,
         videoUrl: car.videoUrl ?? undefined,
         horsepower: car.horsepower ?? undefined,
         zeroToHundred: car.zeroToHundred ?? undefined,
@@ -195,5 +207,6 @@ function buildCarLookups() {
         cities: new Map(listCarCities().map((option) => [option.id, option.name])),
         brands: new Map(listCarBrands().map((option) => [option.id, option.name])),
         colors: new Map(listCarColors().map((option) => [option.id, option.name])),
+        bodyTypes: new Map(listCarBodyTypes().map((option) => [option.id, option.name])),
     };
 }

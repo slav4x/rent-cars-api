@@ -154,6 +154,27 @@ ON CONFLICT(id) DO UPDATE SET
     name = excluded.name,
     sort_order = excluded.sort_order;
 
+CREATE TABLE IF NOT EXISTS car_body_types (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+INSERT INTO car_body_types (id, name, sort_order) VALUES
+    ('sedan', 'Седан', 1),
+    ('coupe', 'Купе', 2),
+    ('hatchback', 'Хэтчбек', 3),
+    ('wagon', 'Универсал', 4),
+    ('crossover', 'Кроссовер', 5),
+    ('suv', 'Внедорожник', 6),
+    ('convertible', 'Кабриолет', 7),
+    ('roadster', 'Родстер', 8),
+    ('pickup', 'Пикап', 9),
+    ('minivan', 'Минивэн', 10)
+ON CONFLICT(id) DO UPDATE SET
+    name = excluded.name,
+    sort_order = excluded.sort_order;
+
 CREATE TABLE IF NOT EXISTS cars (
     id TEXT PRIMARY KEY,
     public_slug TEXT NOT NULL UNIQUE,
@@ -163,6 +184,8 @@ CREATE TABLE IF NOT EXISTS cars (
     city_id TEXT NOT NULL,
     brand_id TEXT NOT NULL,
     color_id TEXT NOT NULL,
+    body_type_id TEXT,
+    seat_count INTEGER,
     video_url TEXT,
     horsepower INTEGER,
     zero_to_hundred REAL,
@@ -183,7 +206,8 @@ CREATE TABLE IF NOT EXISTS cars (
     FOREIGN KEY (category_id) REFERENCES car_categories(id),
     FOREIGN KEY (city_id) REFERENCES car_cities(id),
     FOREIGN KEY (brand_id) REFERENCES car_brands(id),
-    FOREIGN KEY (color_id) REFERENCES car_colors(id)
+    FOREIGN KEY (color_id) REFERENCES car_colors(id),
+    FOREIGN KEY (body_type_id) REFERENCES car_body_types(id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cars_public_slug
