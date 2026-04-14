@@ -4,6 +4,7 @@ const decoder = new TextDecoder();
 type AuthTokenPayload = {
     sub: string;
     email: string;
+    role: string;
     iat: number;
     exp: number;
     iss: "rent-cars-api";
@@ -19,6 +20,7 @@ const AUTH_TOKEN_TTL_SECONDS = Number(
 export async function createAuthToken(payload: {
     sub: string;
     email: string;
+    role: string;
 }) {
     const header = { alg: "HS256", typ: "JWT" };
     const now = Math.floor(Date.now() / 1000);
@@ -48,6 +50,10 @@ export async function verifyAuthToken(token: string) {
     const payload = parseBase64UrlJson<AuthTokenPayload>(encodedPayload);
 
     if (!payload) {
+        return null;
+    }
+
+    if (!payload.role) {
         return null;
     }
 
