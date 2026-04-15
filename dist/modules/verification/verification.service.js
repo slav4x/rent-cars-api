@@ -1,6 +1,5 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
 import { z } from "zod";
+import { savePrivateObject } from "../../lib/storage.js";
 import { createError } from "../auth/auth.service.js";
 import { findUserById, updateUserRecord, } from "../auth/auth.repository.js";
 import { createVerificationRequest, findLatestVerificationRequestByUserId, findVerificationFilesByRequestId, replaceVerificationFile, updateVerificationRequest, } from "./verification.repository.js";
@@ -21,9 +20,6 @@ const requiredFileTypes = [
     "license_front",
     "license_back",
 ];
-const defaultPrivateStorageDir = process.env.NODE_ENV === "production"
-    ? "/tmp/rent-cars-api/storage"
-    : "storage";
 export async function getVerificationOverview(userId) {
     const request = await ensureVerificationRequest(userId);
     const files = await findVerificationFilesByRequestId(request.id);
@@ -37,7 +33,7 @@ export async function uploadVerificationFile(params) {
     const documentType = documentTypeSchema.parse(params.documentType);
     const request = await ensureVerificationRequest(params.userId);
     const previousFile = (await findVerificationFilesByRequestId(request.id)).find((file) => file.type === documentType);
-    const savedFile = savePrivateVerificationFile({
+    const savedFile = await savePrivateVerificationFile({
         userId: params.userId,
         verificationRequestId: request.id,
         documentType,
@@ -142,25 +138,19 @@ async function updateUserActivity(userId, updates) {
         lastLoginAt: updates.lastLoginAt === undefined ? user.lastLoginAt : updates.lastLoginAt,
     });
 }
-function savePrivateVerificationFile(params) {
+async function savePrivateVerificationFile(params) {
     const extension = getVerificationExtension(params.mimeType, params.originalName);
-    const storageRoot = resolve(process.env.PRIVATE_STORAGE_DIR ?? defaultPrivateStorageDir);
-    const directory = resolve(storageRoot, "verification", params.userId, params.verificationRequestId);
-    if (!existsSync(directory)) {
-        mkdirSync(directory, { recursive: true });
-    }
-    if (params.previousFileUrl?.startsWith("private://verification/")) {
-        const oldPath = resolve(storageRoot, params.previousFileUrl.replace("private://", ""));
-        if (existsSync(oldPath)) {
-            rmSync(oldPath, { force: true });
-        }
-    }
     const fileName = `${crypto.randomUUID()}${extension}`;
-    const absolutePath = join(directory, fileName);
-    writeFileSync(absolutePath, params.body);
+    const key = `verification/${params.userId}/${params.verificationRequestId}/${fileName}`;
+    const fileUrl = await savePrivateObject({
+        key,
+        body: params.body,
+        mimeType: params.mimeType,
+        previousFileUrl: params.previousFileUrl,
+    });
     return {
         fileName,
-        fileUrl: `private://verification/${params.userId}/${params.verificationRequestId}/${fileName}`,
+        fileUrl,
     };
 }
 function getVerificationExtension(mimeType, originalName) {

@@ -11,6 +11,7 @@
         "db:down": "docker compose down"
     },
     "dependencies": {
+        "@aws-sdk/client-s3": "^3.916.0",
         "cors": "^2.8.5",
         "express": "^5.1.0",
         "pg": "^8.16.3",

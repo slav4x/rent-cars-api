@@ -61,6 +61,12 @@ npm run dev
 - `UPLOADS_DIR` - папка для сохранения аватаров и других файлов
 - `PRIVATE_STORAGE_DIR` - приватная папка для документов верификации
   В production по умолчанию используются безопасные writable-пути в `/tmp/rent-cars-api/...`, если переменные не заданы.
+- `S3_ENDPOINT` - endpoint object storage, например `https://s3.twcstorage.ru`
+- `S3_REGION` - регион object storage, например `ru-1`
+- `S3_BUCKET` - имя бакета
+- `S3_ACCESS_KEY_ID` - access key для S3
+- `S3_SECRET_ACCESS_KEY` - secret key для S3
+- `S3_PUBLIC_BASE_URL` - базовый public URL, если нужен явный override
 
 ## Локальная БД
 
@@ -73,6 +79,7 @@ npm run dev
 - Медиа автомобилей сохраняются в `./uploads/cars` и раздаются через `/uploads/...`
 - Документы верификации сохраняются приватно в `./storage/verification` и не раздаются как public static
 - В production, если `UPLOADS_DIR` и `PRIVATE_STORAGE_DIR` не заданы явно, файлы уходят в `/tmp/rent-cars-api/uploads` и `/tmp/rent-cars-api/storage`, чтобы приложение могло стартовать в read-only контейнерах
+- Если заданы `S3_*` переменные, публичные файлы сохраняются в S3 и получают URL вида `https://.../bucket/key`, а приватные документы верификации сохраняются туда же под приватным ключом
 - Таблицы `car_categories`, `car_cities`, `car_brands`, `car_colors`, `car_body_types` используются как общие справочники для сайта, ЛК и админки
 - Таблица `user_favorites` хранит избранные автомобили пользователей
 - Для каждого автомобиля сохраняется `public_slug`, который генерируется из названия и автоматически дедуплицируется через `-2`, `-3` и дальше по необходимости
@@ -85,6 +92,13 @@ npm run dev
 - Если кластер требует защищённое подключение, установи `DATABASE_SSL=true`
 - Локальная схема и продовая используют один и тот же `src/db/schema.sql`
 - Для Timeweb Cloud не сохраняй файлы в `/app/...`: по умолчанию API уже переключается на `/tmp/rent-cars-api/...`
+- Для Timeweb S3 укажи:
+  - `S3_ENDPOINT=https://s3.twcstorage.ru`
+  - `S3_REGION=ru-1`
+  - `S3_BUCKET=<bucket-name>`
+  - `S3_ACCESS_KEY_ID=<access-key>`
+  - `S3_SECRET_ACCESS_KEY=<secret-key>`
+  - при необходимости `S3_PUBLIC_BASE_URL=https://s3.twcstorage.ru`
 
 ## Роли пользователей
 

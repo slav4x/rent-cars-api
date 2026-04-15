@@ -315,13 +315,15 @@ app.post("/api/panel/cars/media", express.raw({
             response.status(400).json({ message: "Файл не передан" });
             return;
         }
-        const relativeUrl = saveCarMediaFile({
+        const relativeUrl = await saveCarMediaFile({
             body: request.body,
             mimeType,
         });
         const baseUrl = `${request.protocol}://${request.get("host")}`;
         response.status(201).json({
-            url: `${baseUrl}${relativeUrl}`,
+            url: relativeUrl.startsWith("http")
+                ? relativeUrl
+                : `${baseUrl}${relativeUrl}`,
         });
     }
     catch (error) {

@@ -1,13 +1,4 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-const defaultUploadsDir = process.env.NODE_ENV === "production"
-    ? "/tmp/rent-cars-api/uploads"
-    : "uploads";
-const uploadsRoot = resolve(process.env.UPLOADS_DIR ?? defaultUploadsDir);
-const avatarsDir = join(uploadsRoot, "avatars");
-const carsDir = join(uploadsRoot, "cars");
-mkdirSync(avatarsDir, { recursive: true });
-mkdirSync(carsDir, { recursive: true });
+import { getUploadsRoot as getStorageUploadsRoot, savePublicObject } from "./storage.js";
 const MIME_TO_EXTENSION = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
@@ -18,41 +9,30 @@ const MIME_TO_EXTENSION = {
     "video/quicktime": ".mov",
 };
 export function getUploadsRoot() {
-    return uploadsRoot;
+    return getStorageUploadsRoot();
 }
-export function saveAvatarFile(params) {
+export async function saveAvatarFile(params) {
     const extension = MIME_TO_EXTENSION[params.mimeType];
     if (!extension) {
         throw new Error("UNSUPPORTED_AVATAR_TYPE");
     }
-    removePreviousAvatar(params.currentAvatarUrl);
-    const fileName = `${params.userId}-${Date.now()}${extension}`;
-    const absolutePath = join(avatarsDir, fileName);
-    writeFileSync(absolutePath, params.body);
-    return `/uploads/avatars/${fileName}`;
+    return savePublicObject({
+        directory: "avatars",
+        fileName: `${params.userId}-${Date.now()}${extension}`,
+        body: params.body,
+        mimeType: params.mimeType,
+        previousUrl: params.currentAvatarUrl,
+    });
 }
-export function saveCarMediaFile(params) {
+export async function saveCarMediaFile(params) {
     const extension = MIME_TO_EXTENSION[params.mimeType];
     if (!extension) {
         throw new Error("UNSUPPORTED_CAR_MEDIA_TYPE");
     }
-    const fileName = `${crypto.randomUUID()}${extension}`;
-    const absolutePath = join(carsDir, fileName);
-    writeFileSync(absolutePath, params.body);
-    return `/uploads/cars/${fileName}`;
-}
-function removePreviousAvatar(currentAvatarUrl) {
-    if (!currentAvatarUrl) {
-        return;
-    }
-    const currentPath = currentAvatarUrl.startsWith("http")
-        ? new URL(currentAvatarUrl).pathname
-        : currentAvatarUrl;
-    if (!currentPath.startsWith("/uploads/avatars/")) {
-        return;
-    }
-    const absolutePath = join(uploadsRoot, currentPath.replace("/uploads/", ""));
-    if (existsSync(absolutePath)) {
-        rmSync(absolutePath, { force: true });
-    }
+    return savePublicObject({
+        directory: "cars",
+        fileName: `${crypto.randomUUID()}${extension}`,
+        body: params.body,
+        mimeType: params.mimeType,
+    });
 }

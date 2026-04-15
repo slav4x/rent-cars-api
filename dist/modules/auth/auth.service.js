@@ -158,7 +158,7 @@ export async function updatePanelUserAvatar(params) {
     if (!user) {
         throw createError(404, "Пользователь не найден");
     }
-    const relativeAvatarUrl = saveAvatarFile({
+    const avatarUrl = await saveAvatarFile({
         userId: user.id,
         body: params.body,
         mimeType: params.mimeType,
@@ -167,7 +167,9 @@ export async function updatePanelUserAvatar(params) {
     const now = new Date().toISOString();
     return sanitizeUser(await updateUserRecord({
         ...user,
-        avatarUrl: `${params.baseUrl}${relativeAvatarUrl}`,
+        avatarUrl: avatarUrl.startsWith("http")
+            ? avatarUrl
+            : `${params.baseUrl}${avatarUrl}`,
         updatedAt: now,
         lastActivityAt: now,
     }));
