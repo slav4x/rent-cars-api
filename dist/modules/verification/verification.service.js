@@ -21,6 +21,9 @@ const requiredFileTypes = [
     "license_front",
     "license_back",
 ];
+const defaultPrivateStorageDir = process.env.NODE_ENV === "production"
+    ? "/tmp/rent-cars-api/storage"
+    : "storage";
 export async function getVerificationOverview(userId) {
     const request = await ensureVerificationRequest(userId);
     const files = await findVerificationFilesByRequestId(request.id);
@@ -141,7 +144,7 @@ async function updateUserActivity(userId, updates) {
 }
 function savePrivateVerificationFile(params) {
     const extension = getVerificationExtension(params.mimeType, params.originalName);
-    const storageRoot = resolve(process.cwd(), process.env.PRIVATE_STORAGE_DIR ?? "storage");
+    const storageRoot = resolve(process.env.PRIVATE_STORAGE_DIR ?? defaultPrivateStorageDir);
     const directory = resolve(storageRoot, "verification", params.userId, params.verificationRequestId);
     if (!existsSync(directory)) {
         mkdirSync(directory, { recursive: true });

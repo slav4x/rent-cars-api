@@ -60,6 +60,7 @@ npm run dev
 - `AUTH_TOKEN_TTL_SECONDS` - срок жизни токена в секундах
 - `UPLOADS_DIR` - папка для сохранения аватаров и других файлов
 - `PRIVATE_STORAGE_DIR` - приватная папка для документов верификации
+  В production по умолчанию используются безопасные writable-пути в `/tmp/rent-cars-api/...`, если переменные не заданы.
 
 ## Локальная БД
 
@@ -71,6 +72,7 @@ npm run dev
 - Аватары сохраняются в `./uploads/avatars` и раздаются через `/uploads/...`
 - Медиа автомобилей сохраняются в `./uploads/cars` и раздаются через `/uploads/...`
 - Документы верификации сохраняются приватно в `./storage/verification` и не раздаются как public static
+- В production, если `UPLOADS_DIR` и `PRIVATE_STORAGE_DIR` не заданы явно, файлы уходят в `/tmp/rent-cars-api/uploads` и `/tmp/rent-cars-api/storage`, чтобы приложение могло стартовать в read-only контейнерах
 - Таблицы `car_categories`, `car_cities`, `car_brands`, `car_colors`, `car_body_types` используются как общие справочники для сайта, ЛК и админки
 - Таблица `user_favorites` хранит избранные автомобили пользователей
 - Для каждого автомобиля сохраняется `public_slug`, который генерируется из названия и автоматически дедуплицируется через `-2`, `-3` и дальше по необходимости
@@ -82,6 +84,7 @@ npm run dev
 - Для деплоя в Timeweb Cloud достаточно заменить `DATABASE_URL` на строку подключения от managed PostgreSQL
 - Если кластер требует защищённое подключение, установи `DATABASE_SSL=true`
 - Локальная схема и продовая используют один и тот же `src/db/schema.sql`
+- Для Timeweb Cloud не сохраняй файлы в `/app/...`: по умолчанию API уже переключается на `/tmp/rent-cars-api/...`
 
 ## Роли пользователей
 

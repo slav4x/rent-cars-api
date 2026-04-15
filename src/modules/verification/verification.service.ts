@@ -36,6 +36,11 @@ const requiredFileTypes: VerificationFileRecord["type"][] = [
     "license_back",
 ];
 
+const defaultPrivateStorageDir =
+    process.env.NODE_ENV === "production"
+        ? "/tmp/rent-cars-api/storage"
+        : "storage";
+
 export async function getVerificationOverview(userId: string) {
     const request = await ensureVerificationRequest(userId);
     const files = await findVerificationFilesByRequestId(request.id);
@@ -211,8 +216,7 @@ function savePrivateVerificationFile(params: {
 }) {
     const extension = getVerificationExtension(params.mimeType, params.originalName);
     const storageRoot = resolve(
-        process.cwd(),
-        process.env.PRIVATE_STORAGE_DIR ?? "storage",
+        process.env.PRIVATE_STORAGE_DIR ?? defaultPrivateStorageDir,
     );
     const directory = resolve(
         storageRoot,

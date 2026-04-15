@@ -1,6 +1,9 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-const uploadsRoot = resolve(process.cwd(), process.env.UPLOADS_DIR ?? "uploads");
+const defaultUploadsDir = process.env.NODE_ENV === "production"
+    ? "/tmp/rent-cars-api/uploads"
+    : "uploads";
+const uploadsRoot = resolve(process.env.UPLOADS_DIR ?? defaultUploadsDir);
 const avatarsDir = join(uploadsRoot, "avatars");
 const carsDir = join(uploadsRoot, "cars");
 mkdirSync(avatarsDir, { recursive: true });

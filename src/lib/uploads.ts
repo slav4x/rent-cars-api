@@ -1,9 +1,13 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { extname, join, resolve } from "node:path";
 
+const defaultUploadsDir =
+    process.env.NODE_ENV === "production"
+        ? "/tmp/rent-cars-api/uploads"
+        : "uploads";
+
 const uploadsRoot = resolve(
-    process.cwd(),
-    process.env.UPLOADS_DIR ?? "uploads",
+    process.env.UPLOADS_DIR ?? defaultUploadsDir,
 );
 const avatarsDir = join(uploadsRoot, "avatars");
 const carsDir = join(uploadsRoot, "cars");
