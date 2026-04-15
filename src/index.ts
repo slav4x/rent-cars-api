@@ -47,7 +47,8 @@ import {
 const app = express();
 app.disable("x-powered-by");
 const port = Number(process.env.PORT ?? 4000);
-const clientOrigin = process.env.CLIENT_ORIGIN ?? "http://localhost:3000";
+const clientOrigin =
+    (process.env.CLIENT_ORIGIN ?? "http://localhost:3000").replace(/\/+$/, "");
 
 app.use(
     cors({
