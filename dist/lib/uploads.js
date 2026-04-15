@@ -1,3 +1,4 @@
+import { optimizeAvatarImage, optimizeCarImage } from "./image.js";
 import { getUploadsRoot as getStorageUploadsRoot, savePublicObject } from "./storage.js";
 const MIME_TO_EXTENSION = {
     "image/jpeg": ".jpg",
@@ -12,19 +13,28 @@ export function getUploadsRoot() {
     return getStorageUploadsRoot();
 }
 export async function saveAvatarFile(params) {
-    const extension = MIME_TO_EXTENSION[params.mimeType];
-    if (!extension) {
+    if (!params.mimeType.startsWith("image/")) {
         throw new Error("UNSUPPORTED_AVATAR_TYPE");
     }
+    const optimizedImage = await optimizeAvatarImage(params.body);
     return savePublicObject({
         directory: "avatars",
-        fileName: `${params.userId}-${Date.now()}${extension}`,
-        body: params.body,
-        mimeType: params.mimeType,
+        fileName: `${params.userId}-${Date.now()}${optimizedImage.extension}`,
+        body: optimizedImage.body,
+        mimeType: optimizedImage.mimeType,
         previousUrl: params.currentAvatarUrl,
     });
 }
 export async function saveCarMediaFile(params) {
+    if (params.mimeType.startsWith("image/")) {
+        const optimizedImage = await optimizeCarImage(params.body);
+        return savePublicObject({
+            directory: "cars",
+            fileName: `${crypto.randomUUID()}${optimizedImage.extension}`,
+            body: optimizedImage.body,
+            mimeType: optimizedImage.mimeType,
+        });
+    }
     const extension = MIME_TO_EXTENSION[params.mimeType];
     if (!extension) {
         throw new Error("UNSUPPORTED_CAR_MEDIA_TYPE");
