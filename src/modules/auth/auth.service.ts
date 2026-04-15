@@ -1,5 +1,9 @@
 import { z } from "zod";
+import type { PoolClient } from "pg";
+import { withTransaction } from "../../db/database.js";
+import { env } from "../../config/env.js";
 import { createAuthToken } from "../../lib/jwt.js";
+import { createRefreshToken, hashRefreshToken } from "../../lib/refresh-token.js";
 import { saveAvatarFile } from "../../lib/uploads.js";
 import { hashPassword, verifyPassword } from "../../lib/password.js";
 import {
@@ -10,6 +14,11 @@ import {
     updateUserRecord,
     type StoredUser,
 } from "./auth.repository.js";
+import {
+    createRefreshSessionRecord,
+    findRefreshSessionByTokenHash,
+    revokeRefreshSession,
+} from "./refresh.repository.js";
 
 const emailField = z.email("Введите корректный email").transform((value) =>
     value.trim().toLowerCase(),
@@ -35,6 +44,12 @@ const loginSchema = z
 const resetPasswordSchema = z
     .object({
         email: emailField,
+    })
+    .strict();
+
+const refreshTokenSchema = z
+    .object({
+        refreshToken: z.string().min(20, "Некорректный refresh token"),
     })
     .strict();
 
@@ -80,6 +95,7 @@ export type PublicUser = {
 
 type AuthSessionResponse = {
     token: string;
+    refreshToken: string;
     user: PublicUser;
     createdAt: string;
 };
@@ -97,18 +113,24 @@ export async function createUser(
     if (existingUser?.role === "guest") {
         const now = new Date().toISOString();
 
-        return buildSession(
-            await updateUserRecord({
-                ...existingUser,
-                firstName: data.firstName,
-                lastName: data.lastName,
-                phone: data.phone,
-                password: hashPassword(data.password),
-                role: "user",
-                updatedAt: now,
-                lastLoginAt: now,
-                lastActivityAt: now,
-            }),
+        return withTransaction(async (client) =>
+            buildSession(
+                await updateUserRecord(
+                    {
+                        ...existingUser,
+                        firstName: data.firstName,
+                        lastName: data.lastName,
+                        phone: data.phone,
+                        password: hashPassword(data.password),
+                        role: "user",
+                        updatedAt: now,
+                        lastLoginAt: now,
+                        lastActivityAt: now,
+                    },
+                    client,
+                ),
+                client,
+            ),
         );
     }
 
@@ -131,7 +153,9 @@ export async function createUser(
         lastActivityAt: createdAt,
     };
 
-    return buildSession(await createUserRecord(user));
+    return withTransaction(async (client) =>
+        buildSession(await createUserRecord(user, client), client),
+    );
 }
 
 export async function loginUser(
@@ -153,14 +177,20 @@ export async function loginUser(
 
     const now = new Date().toISOString();
 
-    return buildSession(
-        await updateUserRecord({
-            ...user,
-            updatedAt: now,
-            lastLoginAt: now,
-            lastBookingAt: user.lastBookingAt,
-            lastActivityAt: now,
-        }),
+    return withTransaction(async (client) =>
+        buildSession(
+            await updateUserRecord(
+                {
+                    ...user,
+                    updatedAt: now,
+                    lastLoginAt: now,
+                    lastBookingAt: user.lastBookingAt,
+                    lastActivityAt: now,
+                },
+                client,
+            ),
+            client,
+        ),
     );
 }
 
@@ -170,6 +200,62 @@ export async function requestPasswordReset(
     resetPasswordSchema.parse(payload);
 
     return { ok: true };
+}
+
+export async function logoutUser(payload: unknown): Promise<{ ok: true }> {
+    const data = refreshTokenSchema.partial().parse(payload);
+
+    if (data.refreshToken) {
+        const tokenHash = hashRefreshToken(data.refreshToken);
+        const session = await findRefreshSessionByTokenHash(tokenHash);
+
+        if (session && !session.revokedAt) {
+            await revokeRefreshSession(session.id, new Date().toISOString());
+        }
+    }
+
+    return { ok: true };
+}
+
+export async function refreshUserSession(
+    payload: unknown,
+): Promise<AuthSessionResponse> {
+    const data = refreshTokenSchema.parse(payload);
+    const tokenHash = hashRefreshToken(data.refreshToken);
+    const existingSession = await findRefreshSessionByTokenHash(tokenHash);
+
+    if (!existingSession || existingSession.revokedAt) {
+        throw createError(401, "Сессия истекла. Выполните вход заново");
+    }
+
+    if (Date.parse(existingSession.expiresAt) <= Date.now()) {
+        await revokeRefreshSession(existingSession.id, new Date().toISOString());
+        throw createError(401, "Сессия истекла. Выполните вход заново");
+    }
+
+    const user = await findUserById(existingSession.userId);
+
+    if (!user || user.role === "guest") {
+        await revokeRefreshSession(existingSession.id, new Date().toISOString());
+        throw createError(401, "Сессия истекла. Выполните вход заново");
+    }
+
+    return withTransaction(async (client) => {
+        const now = new Date().toISOString();
+        await revokeRefreshSession(existingSession.id, now, client);
+
+        return buildSession(
+            await updateUserRecord(
+                {
+                    ...user,
+                    updatedAt: now,
+                    lastActivityAt: now,
+                },
+                client,
+            ),
+            client,
+        );
+    });
 }
 
 export async function getUsersForDev() {
@@ -289,13 +375,36 @@ function normalizeOptional(value: string | undefined) {
     return value.trim() || null;
 }
 
-async function buildSession(user: StoredUser): Promise<AuthSessionResponse> {
+async function buildSession(
+    user: StoredUser,
+    client?: PoolClient,
+): Promise<AuthSessionResponse> {
+    const refreshToken = createRefreshToken();
+    const now = new Date().toISOString();
+    const refreshExpiresAt = new Date(
+        Date.now() + env.refreshTokenTtlSeconds * 1000,
+    ).toISOString();
+
+    await createRefreshSessionRecord(
+        {
+            id: crypto.randomUUID(),
+            userId: user.id,
+            tokenHash: hashRefreshToken(refreshToken),
+            expiresAt: refreshExpiresAt,
+            createdAt: now,
+            updatedAt: now,
+            revokedAt: null,
+        },
+        client,
+    );
+
     return {
         token: await createAuthToken({
             sub: user.id,
             email: user.email,
             role: user.role,
         }),
+        refreshToken,
         user: sanitizeUser(user),
         createdAt: user.createdAt,
     };

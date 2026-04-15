@@ -1,8 +1,12 @@
 import { z } from "zod";
+import { withTransaction } from "../../db/database.js";
+import { env } from "../../config/env.js";
 import { createAuthToken } from "../../lib/jwt.js";
+import { createRefreshToken, hashRefreshToken } from "../../lib/refresh-token.js";
 import { saveAvatarFile } from "../../lib/uploads.js";
 import { hashPassword, verifyPassword } from "../../lib/password.js";
 import { createUserRecord, findUserByEmail, findUserById, listUsers, updateUserRecord, } from "./auth.repository.js";
+import { createRefreshSessionRecord, findRefreshSessionByTokenHash, revokeRefreshSession, } from "./refresh.repository.js";
 const emailField = z.email("Введите корректный email").transform((value) => value.trim().toLowerCase());
 const registerSchema = z
     .object({
@@ -22,6 +26,11 @@ const loginSchema = z
 const resetPasswordSchema = z
     .object({
     email: emailField,
+})
+    .strict();
+const refreshTokenSchema = z
+    .object({
+    refreshToken: z.string().min(20, "Некорректный refresh token"),
 })
     .strict();
 const updatePanelUserSchema = z
@@ -50,7 +59,7 @@ export async function createUser(payload) {
     }
     if (existingUser?.role === "guest") {
         const now = new Date().toISOString();
-        return buildSession(await updateUserRecord({
+        return withTransaction(async (client) => buildSession(await updateUserRecord({
             ...existingUser,
             firstName: data.firstName,
             lastName: data.lastName,
@@ -60,7 +69,7 @@ export async function createUser(payload) {
             updatedAt: now,
             lastLoginAt: now,
             lastActivityAt: now,
-        }));
+        }, client), client));
     }
     const createdAt = new Date().toISOString();
     const user = {
@@ -80,7 +89,7 @@ export async function createUser(payload) {
         lastBookingAt: null,
         lastActivityAt: createdAt,
     };
-    return buildSession(await createUserRecord(user));
+    return withTransaction(async (client) => buildSession(await createUserRecord(user, client), client));
 }
 export async function loginUser(payload) {
     const data = loginSchema.parse(payload);
@@ -92,17 +101,54 @@ export async function loginUser(payload) {
         throw createError(403, "Гостевой аккаунт неактивен. Завершите регистрацию с этой же почтой, чтобы активировать его.");
     }
     const now = new Date().toISOString();
-    return buildSession(await updateUserRecord({
+    return withTransaction(async (client) => buildSession(await updateUserRecord({
         ...user,
         updatedAt: now,
         lastLoginAt: now,
         lastBookingAt: user.lastBookingAt,
         lastActivityAt: now,
-    }));
+    }, client), client));
 }
 export async function requestPasswordReset(payload) {
     resetPasswordSchema.parse(payload);
     return { ok: true };
+}
+export async function logoutUser(payload) {
+    const data = refreshTokenSchema.partial().parse(payload);
+    if (data.refreshToken) {
+        const tokenHash = hashRefreshToken(data.refreshToken);
+        const session = await findRefreshSessionByTokenHash(tokenHash);
+        if (session && !session.revokedAt) {
+            await revokeRefreshSession(session.id, new Date().toISOString());
+        }
+    }
+    return { ok: true };
+}
+export async function refreshUserSession(payload) {
+    const data = refreshTokenSchema.parse(payload);
+    const tokenHash = hashRefreshToken(data.refreshToken);
+    const existingSession = await findRefreshSessionByTokenHash(tokenHash);
+    if (!existingSession || existingSession.revokedAt) {
+        throw createError(401, "Сессия истекла. Выполните вход заново");
+    }
+    if (Date.parse(existingSession.expiresAt) <= Date.now()) {
+        await revokeRefreshSession(existingSession.id, new Date().toISOString());
+        throw createError(401, "Сессия истекла. Выполните вход заново");
+    }
+    const user = await findUserById(existingSession.userId);
+    if (!user || user.role === "guest") {
+        await revokeRefreshSession(existingSession.id, new Date().toISOString());
+        throw createError(401, "Сессия истекла. Выполните вход заново");
+    }
+    return withTransaction(async (client) => {
+        const now = new Date().toISOString();
+        await revokeRefreshSession(existingSession.id, now, client);
+        return buildSession(await updateUserRecord({
+            ...user,
+            updatedAt: now,
+            lastActivityAt: now,
+        }, client), client);
+    });
 }
 export async function getUsersForDev() {
     return (await listUsers()).map((storedUser) => {
@@ -193,13 +239,26 @@ function normalizeOptional(value) {
     }
     return value.trim() || null;
 }
-async function buildSession(user) {
+async function buildSession(user, client) {
+    const refreshToken = createRefreshToken();
+    const now = new Date().toISOString();
+    const refreshExpiresAt = new Date(Date.now() + env.refreshTokenTtlSeconds * 1000).toISOString();
+    await createRefreshSessionRecord({
+        id: crypto.randomUUID(),
+        userId: user.id,
+        tokenHash: hashRefreshToken(refreshToken),
+        expiresAt: refreshExpiresAt,
+        createdAt: now,
+        updatedAt: now,
+        revokedAt: null,
+    }, client);
     return {
         token: await createAuthToken({
             sub: user.id,
             email: user.email,
             role: user.role,
         }),
+        refreshToken,
         user: sanitizeUser(user),
         createdAt: user.createdAt,
     };

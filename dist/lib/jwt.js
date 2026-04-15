@@ -1,7 +1,8 @@
+import { env } from "../config/env.js";
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-const AUTH_TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET ?? "rent-cars-dev-secret-change-me";
-const AUTH_TOKEN_TTL_SECONDS = Number(process.env.AUTH_TOKEN_TTL_SECONDS ?? 60 * 60 * 24 * 7);
+const AUTH_TOKEN_SECRET = env.authTokenSecret;
+const AUTH_TOKEN_TTL_SECONDS = env.authTokenTtlSeconds;
 export async function createAuthToken(payload) {
     const header = { alg: "HS256", typ: "JWT" };
     const now = Math.floor(Date.now() / 1000);

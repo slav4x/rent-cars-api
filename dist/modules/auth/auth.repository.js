@@ -1,5 +1,5 @@
 import { queryFirst, queryRows, execute } from "../../db/database.js";
-export async function createUserRecord(user) {
+export async function createUserRecord(user, client) {
     await execute(`
             INSERT INTO users (
                 id, first_name, last_name, phone, email, password, avatar_url, birth_date,
@@ -25,7 +25,7 @@ export async function createUserRecord(user) {
         user.lastLoginAt,
         user.lastBookingAt,
         user.lastActivityAt,
-    ]);
+    ], client);
     return user;
 }
 export async function findUserByEmail(email) {
@@ -55,7 +55,7 @@ export async function listUsers() {
         `);
     return rows.map(mapUser);
 }
-export async function updateUserRecord(user) {
+export async function updateUserRecord(user, client) {
     await execute(`
             UPDATE users
             SET
@@ -88,7 +88,7 @@ export async function updateUserRecord(user) {
         user.lastBookingAt,
         user.lastActivityAt,
         user.id,
-    ]);
+    ], client);
     return user;
 }
 function mapUser(row) {

@@ -53,11 +53,12 @@ npm run dev
 ## Переменные окружения
 
 - `PORT` - порт API, по умолчанию `4000`
-- `CLIENT_ORIGIN` - origin фронтенда для CORS
+- `CLIENT_ORIGIN` - origin фронтенда для CORS, можно перечислить несколько через запятую
 - `DATABASE_URL` - строка подключения к PostgreSQL
 - `DATABASE_SSL` - включить SSL для managed Postgres, например Timeweb Cloud
 - `AUTH_TOKEN_SECRET` - секрет для подписи auth-токенов
-- `AUTH_TOKEN_TTL_SECONDS` - срок жизни токена в секундах
+- `AUTH_TOKEN_TTL_SECONDS` - срок жизни access token в секундах
+- `REFRESH_TOKEN_TTL_SECONDS` - срок жизни refresh token в секундах
 - `UPLOADS_DIR` - папка для сохранения аватаров и других файлов
 - `PRIVATE_STORAGE_DIR` - приватная папка для документов верификации
   В production по умолчанию используются безопасные writable-пути в `/tmp/rent-cars-api/...`, если переменные не заданы.
@@ -67,6 +68,7 @@ npm run dev
 - `S3_ACCESS_KEY_ID` - access key для S3
 - `S3_SECRET_ACCESS_KEY` - secret key для S3
 - `S3_PUBLIC_BASE_URL` - базовый public URL, если нужен явный override
+- API валидирует обязательные env на старте и не должен подниматься с пустыми `DATABASE_URL`, `AUTH_TOKEN_SECRET` или некорректным `CLIENT_ORIGIN`
 
 ## Локальная БД
 
@@ -75,6 +77,8 @@ npm run dev
 - По умолчанию используется `postgresql://rentcars:rentcars@localhost:5432/rentcars`
 - Схема лежит в `src/db/schema.sql`
 - Auth использует подписанный токен, поэтому `AUTH_TOKEN_SECRET` должен совпадать с настройкой во фронтенде
+- Access token теперь рассчитан на короткую жизнь, а refresh token используется для перевыпуска сессии без повторного логина
+- На auth-роутах (`register`, `login`, `reset-password`) включён базовый rate limit, чтобы не принимать бесконечный brute-force
 - Аватары сохраняются в `./uploads/avatars` и раздаются через `/uploads/...`
 - Медиа автомобилей сохраняются в `./uploads/cars` и раздаются через `/uploads/...`
 - Документы верификации сохраняются приватно в `./storage/verification` и не раздаются как public static
@@ -90,6 +94,7 @@ npm run dev
 
 - Для деплоя в Timeweb Cloud достаточно заменить `DATABASE_URL` на строку подключения от managed PostgreSQL
 - Если кластер требует защищённое подключение, установи `DATABASE_SSL=true`
+- Для `CLIENT_ORIGIN` указывай origin без хвостового `/`, либо списком через запятую, если нужен production и локальный фронт одновременно
 - Локальная схема и продовая используют один и тот же `src/db/schema.sql`
 - Для Timeweb Cloud не сохраняй файлы в `/app/...`: по умолчанию API уже переключается на `/tmp/rent-cars-api/...`
 - Для Timeweb S3 укажи:

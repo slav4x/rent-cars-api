@@ -18,6 +18,20 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
+CREATE TABLE IF NOT EXISTS auth_refresh_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    revoked_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_refresh_sessions_user_id
+    ON auth_refresh_sessions(user_id);
+
 CREATE TABLE IF NOT EXISTS verification_requests (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,

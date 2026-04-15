@@ -1,4 +1,5 @@
 import { queryFirst, queryRows, execute } from "../../db/database.js";
+import type { PoolClient } from "pg";
 
 export type StoredUser = {
     id: string;
@@ -36,7 +37,7 @@ type UserRow = {
     last_activity_at: string | null;
 };
 
-export async function createUserRecord(user: StoredUser) {
+export async function createUserRecord(user: StoredUser, client?: PoolClient) {
     await execute(
         `
             INSERT INTO users (
@@ -65,6 +66,7 @@ export async function createUserRecord(user: StoredUser) {
             user.lastBookingAt,
             user.lastActivityAt,
         ],
+        client,
     );
 
     return user;
@@ -108,7 +110,7 @@ export async function listUsers() {
     return rows.map(mapUser);
 }
 
-export async function updateUserRecord(user: StoredUser) {
+export async function updateUserRecord(user: StoredUser, client?: PoolClient) {
     await execute(
         `
             UPDATE users
@@ -144,6 +146,7 @@ export async function updateUserRecord(user: StoredUser) {
             user.lastActivityAt,
             user.id,
         ],
+        client,
     );
 
     return user;
