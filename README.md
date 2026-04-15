@@ -1,30 +1,17 @@
 # Rent Cars API
 
-Локальный API для разработки фронтенда и постепенной замены моков.
+API проекта на Express + PostgreSQL.
 
-## Возможности
+## Стек
 
-- `GET /health` - проверка, что сервер жив
-- `POST /api/auth/register` - регистрация пользователя
-- `POST /api/auth/login` - вход
-- `POST /api/auth/reset-password` - имитация сброса пароля
-- `GET /api/dev/users` - список пользователей из локальной PostgreSQL-базы без паролей
-- `GET /api/panel/admins` - список пользователей для админки, кроме ролей `user` и `guest`
-- `GET /api/panel/users` - список обычных пользователей с ролью `user`
-- `GET /api/panel/car-options` - справочники категорий, городов, марок, цветов и типов кузова
-- `GET /api/panel/cars` - список автомобилей для админки
-- `GET /api/panel/cars/:id` - получить автомобиль для редактора
-- `POST /api/panel/cars` - создать автомобиль
-- `PATCH /api/panel/cars/:id` - обновить автомобиль
-- `POST /api/panel/cars/media` - загрузить фото или видео автомобиля
-- `GET /api/cars` - публичный список автомобилей для сайта и ЛК
-- `GET /api/cars/:slug` - публичная карточка автомобиля по slug
-- `GET /api/account/favorites` - избранные автомобили пользователя
-- `GET /api/account/favorite-ids` - только ID избранных автомобилей
-- `POST /api/account/favorites/:carId` - добавить авто в избранное
-- `DELETE /api/account/favorites/:carId` - убрать авто из избранного
+- Express 5
+- PostgreSQL
+- TypeScript
+- Zod
+- Sharp
+- S3-compatible storage
 
-## Запуск
+## Запуск локально
 
 1. Установить зависимости:
 
@@ -32,7 +19,7 @@
 npm install
 ```
 
-2. Поднять локальный PostgreSQL:
+2. Поднять локальную PostgreSQL:
 
 ```bash
 npm run db:up
@@ -44,108 +31,95 @@ npm run db:up
 cp .env.example .env
 ```
 
-4. Запустить dev-сервер:
+4. Запустить API:
 
 ```bash
 npm run dev
 ```
 
+## Команды
+
+```bash
+npm run dev
+npm run build
+npm run start
+npm run db:up
+npm run db:down
+```
+
+## Основные возможности
+
+- auth: `register`, `login`, `refresh`, `logout`
+- роли и защита panel/account-роутов
+- профиль пользователя и аватар
+- верификация с приватными документами
+- избранное пользователя
+- справочники и CRUD автомобилей
+- публичные `/api/cars` и `/api/cars/:slug`
+- загрузка медиа автомобилей
+
 ## Переменные окружения
 
-- `PORT` - порт API, по умолчанию `4000`
-- `CLIENT_ORIGIN` - origin фронтенда для CORS, можно перечислить несколько через запятую
-- `DATABASE_URL` - строка подключения к PostgreSQL
-- `DATABASE_SSL` - включить SSL для managed Postgres, например Timeweb Cloud
-- `AUTH_TOKEN_SECRET` - секрет для подписи auth-токенов
-- `AUTH_TOKEN_TTL_SECONDS` - срок жизни access token в секундах
-- `REFRESH_TOKEN_TTL_SECONDS` - срок жизни refresh token в секундах
-- `UPLOADS_DIR` - папка для сохранения аватаров и других файлов
-- `PRIVATE_STORAGE_DIR` - приватная папка для документов верификации
-  В production по умолчанию используются безопасные writable-пути в `/tmp/rent-cars-api/...`, если переменные не заданы.
-- `S3_ENDPOINT` - endpoint object storage, например `https://s3.twcstorage.ru`
-- `S3_REGION` - регион object storage, например `ru-1`
-- `S3_BUCKET` - имя бакета
-- `S3_ACCESS_KEY_ID` - access key для S3
-- `S3_SECRET_ACCESS_KEY` - secret key для S3
-- `S3_PUBLIC_BASE_URL` - базовый public URL, если нужен явный override
-- API валидирует обязательные env на старте и не должен подниматься с пустыми `DATABASE_URL`, `AUTH_TOKEN_SECRET` или некорректным `CLIENT_ORIGIN`
+- `PORT` — порт API
+- `CLIENT_ORIGIN` — один или несколько origin через запятую
+- `DATABASE_URL` — строка подключения к PostgreSQL
+- `DATABASE_SSL` — SSL для managed Postgres
+- `AUTH_TOKEN_SECRET` — секрет подписи access token
+- `AUTH_TOKEN_TTL_SECONDS` — TTL access token
+- `REFRESH_TOKEN_TTL_SECONDS` — TTL refresh token
+- `UPLOADS_DIR` — локальная папка для публичных файлов
+- `PRIVATE_STORAGE_DIR` — локальная папка для приватных файлов
+- `S3_ENDPOINT`
+- `S3_REGION`
+- `S3_BUCKET`
+- `S3_ACCESS_KEY_ID`
+- `S3_SECRET_ACCESS_KEY`
+- `S3_PUBLIC_BASE_URL`
 
-## Локальная БД
+## Локальная база
 
-- База инициализируется автоматически при старте API
-- Локально Postgres поднимается через `docker compose` из `docker-compose.yml`
-- По умолчанию используется `postgresql://rentcars:rentcars@localhost:5432/rentcars`
-- Схема лежит в `src/db/schema.sql`
-- Auth использует подписанный токен, поэтому `AUTH_TOKEN_SECRET` должен совпадать с настройкой во фронтенде
-- Access token теперь рассчитан на короткую жизнь, а refresh token используется для перевыпуска сессии без повторного логина
-- На auth-роутах (`register`, `login`, `reset-password`) включён базовый rate limit, чтобы не принимать бесконечный brute-force
-- Аватары сохраняются в `./uploads/avatars` и раздаются через `/uploads/...`
-- Медиа автомобилей сохраняются в `./uploads/cars` и раздаются через `/uploads/...`
-- Все новые аватары на API приводятся к `jpg`, кадрируются по центру в квадрат `600x600` и дополнительно сжимаются
-- Все новые изображения автомобилей на API приводятся к `jpg`, ужимаются с сохранением пропорций до максимума `1600x1600` и дополнительно сжимаются
-- Документы верификации сохраняются приватно в `./storage/verification` и не раздаются как public static
-- В production, если `UPLOADS_DIR` и `PRIVATE_STORAGE_DIR` не заданы явно, файлы уходят в `/tmp/rent-cars-api/uploads` и `/tmp/rent-cars-api/storage`, чтобы приложение могло стартовать в read-only контейнерах
-- Если заданы `S3_*` переменные, публичные файлы сохраняются в S3 и получают URL вида `https://.../bucket/key`, а приватные документы верификации сохраняются туда же под приватным ключом
-- Таблицы `car_categories`, `car_cities`, `car_brands`, `car_colors`, `car_body_types` используются как общие справочники для сайта, ЛК и админки
-- Таблица `user_favorites` хранит избранные автомобили пользователей
-- Для каждого автомобиля сохраняется `public_slug`, который генерируется из названия и автоматически дедуплицируется через `-2`, `-3` и дальше по необходимости
-- Для тарифов автомобиля поддерживаются цены на `сутки`, `2-7 дней`, `от 7 дней`, `от 30 суток`, `от 60 суток`
-- Для каждого автомобиля можно сохранять `тип кузова` и `кол-во мест`
+- по умолчанию используется `postgresql://rentcars:rentcars@localhost:5432/rentcars`
+- схема лежит в `src/db/schema.sql`
+- схема применяется при старте API автоматически
+- новые таблицы и индексы подтягиваются сами
+- изменения существующих колонок нужно мигрировать отдельно SQL-командами
 
-## Timeweb Cloud
+## Файлы и загрузки
 
-- Для деплоя в Timeweb Cloud достаточно заменить `DATABASE_URL` на строку подключения от managed PostgreSQL
-- Если кластер требует защищённое подключение, установи `DATABASE_SSL=true`
-- Для `CLIENT_ORIGIN` указывай origin без хвостового `/`, либо списком через запятую, если нужен production и локальный фронт одновременно
-- Локальная схема и продовая используют один и тот же `src/db/schema.sql`
-- Для Timeweb Cloud не сохраняй файлы в `/app/...`: по умолчанию API уже переключается на `/tmp/rent-cars-api/...`
-- Для Timeweb S3 укажи:
-  - `S3_ENDPOINT=https://s3.twcstorage.ru`
-  - `S3_REGION=ru-1`
-  - `S3_BUCKET=<bucket-name>`
-  - `S3_ACCESS_KEY_ID=<access-key>`
-  - `S3_SECRET_ACCESS_KEY=<secret-key>`
-  - при необходимости `S3_PUBLIC_BASE_URL=https://s3.twcstorage.ru`
+- аватары сохраняются как `jpg`, центр-кроп `600x600`, со сжатием
+- изображения автомобилей сохраняются как `jpg`, максимум `1600x1600`, со сжатием
+- видео автомобилей сохраняются без конвертации
+- документы верификации хранятся приватно
+- в production без явных путей локальное хранилище уходит в `/tmp/rent-cars-api/...`
+- если заданы `S3_*`, публичные и приватные файлы сохраняются в S3
 
-## Роли пользователей
+## Безопасность
 
-- `guest` - гость после бронирования без регистрации. Хранится в базе, но вход в аккаунт для него запрещен.
-- `user` - зарегистрированный пользователь.
-- `manager` - сотрудник с доступом в админ-панель.
-- `admin` - полный доступ к админ-панели.
+- обязательная валидация env на старте
+- CORS по списку разрешённых origin
+- rate limit на `register`, `login`, `reset-password`
+- role-based доступ к `/api/panel/*`
+- refresh token хранится отдельной серверной сессией
+- dev-роут `/api/dev/users` отключён в production
 
-Если регистрация выполняется на email существующего `guest`, API не создаёт нового пользователя, а активирует существующий аккаунт и переводит его в роль `user`.
+## Роли
+
+- `guest`
+- `user`
+- `manager`
+- `admin`
 
 ## Статусы верификации
 
-- `inactive` - дефолтный статус нового пользователя, аккаунт еще не верифицирован
-- `pending` - документы отправлены на модерацию
-- `verified` - верификация подтверждена
-- `rejected` - верификация отклонена
+- `inactive`
+- `pending`
+- `verified`
+- `rejected`
 
-## Примеры запросов
+## Timeweb Cloud
 
-Регистрация:
-
-```bash
-curl -X POST http://localhost:4000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "firstName": "Slava",
-    "lastName": "Dev",
-    "phone": "+79990000000",
-    "email": "slava@example.com",
-    "password": "secret123"
-  }'
-```
-
-Вход:
-
-```bash
-curl -X POST http://localhost:4000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "slava@example.com",
-    "password": "secret123"
-  }'
-```
+- укажи `DATABASE_URL` от managed PostgreSQL
+- включи `DATABASE_SSL=true`, если кластер требует TLS
+- `CLIENT_ORIGIN` задавай без хвостового `/`
+- для object storage укажи `S3_*` переменные
+- не рассчитывай на запись в `/app/...`, для этого уже есть `/tmp` fallback или S3
