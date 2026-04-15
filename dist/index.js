@@ -9,7 +9,7 @@ import { getAccountProfile, updateAccountAvatar, updateAccountProfile, } from ".
 import { getVerificationOverview, submitVerificationRequest, uploadVerificationFile, } from "./modules/verification/verification.service.js";
 import { addFavorite, getFavoriteCarIds, getFavoriteCars, removeFavorite, } from "./modules/favorites/favorites.service.js";
 import { createCar, getCarByPublicSlug, getCarForPanel, getCarOptions, getCarsForPanel, getCarsForPublic, updateCar, } from "./modules/cars/cars.service.js";
-import { createUser, getAllUsersForPanel, getPanelUsers, getUsersForDev, loginUser, requestPasswordReset, } from "./modules/auth/auth.service.js";
+import { createUser, getAllUsersForPanel, getPanelUsers, getPanelUserById, getUsersForDev, loginUser, requestPasswordReset, updatePanelUser, updatePanelUserAvatar, } from "./modules/auth/auth.service.js";
 const app = express();
 app.disable("x-powered-by");
 const port = Number(process.env.PORT ?? 4000);
@@ -87,6 +87,88 @@ app.get("/api/panel/users", async (request, response, next) => {
         }
         const users = await getAllUsersForPanel();
         response.json(users);
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.get("/api/panel/users/:id", async (request, response, next) => {
+    try {
+        if (!request.userId) {
+            response.status(401).json({ message: "Требуется авторизация" });
+            return;
+        }
+        const payload = request.headers.authorization?.startsWith("Bearer ")
+            ? await verifyAuthToken(request.headers.authorization.slice("Bearer ".length))
+            : null;
+        if (!payload || !["manager", "admin"].includes(payload.role)) {
+            response.status(403).json({ message: "Недостаточно прав" });
+            return;
+        }
+        response.json(await getPanelUserById(request.params.id));
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.patch("/api/panel/users/:id", async (request, response, next) => {
+    try {
+        if (!request.userId) {
+            response.status(401).json({ message: "Требуется авторизация" });
+            return;
+        }
+        const payload = request.headers.authorization?.startsWith("Bearer ")
+            ? await verifyAuthToken(request.headers.authorization.slice("Bearer ".length))
+            : null;
+        if (!payload || !["manager", "admin"].includes(payload.role)) {
+            response.status(403).json({ message: "Недостаточно прав" });
+            return;
+        }
+        response.json(await updatePanelUser(request.params.id, request.body));
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.post("/api/panel/users/:id/avatar", async (request, response, next) => {
+    try {
+        if (!request.userId) {
+            response.status(401).json({ message: "Требуется авторизация" });
+            return;
+        }
+        const payload = request.headers.authorization?.startsWith("Bearer ")
+            ? await verifyAuthToken(request.headers.authorization.slice("Bearer ".length))
+            : null;
+        if (!payload || !["manager", "admin"].includes(payload.role)) {
+            response.status(403).json({ message: "Недостаточно прав" });
+            return;
+        }
+        const chunks = [];
+        request.on("data", (chunk) => {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
+        request.on("end", async () => {
+            try {
+                const mimeType = request.headers["content-type"] ?? "";
+                if (!mimeType.startsWith("image/")) {
+                    response.status(400).json({
+                        message: "Поддерживаются только изображения",
+                    });
+                    return;
+                }
+                const user = await updatePanelUserAvatar({
+                    userId: request.params.id,
+                    body: Buffer.concat(chunks),
+                    mimeType,
+                    baseUrl: `${request.protocol}://${request.get("host")}`,
+                });
+                response.json(user);
+            }
+            catch (error) {
+                next(error);
+            }
+        });
+        request.on("error", next);
     }
     catch (error) {
         next(error);

@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { createAuthToken } from "../../lib/jwt.js";
+import { saveAvatarFile } from "../../lib/uploads.js";
 import { hashPassword, verifyPassword } from "../../lib/password.js";
 import {
     createUserRecord,
     findUserByEmail,
+    findUserById,
     listUsers,
     updateUserRecord,
     type StoredUser,
@@ -33,6 +35,25 @@ const loginSchema = z
 const resetPasswordSchema = z
     .object({
         email: emailField,
+    })
+    .strict();
+
+const updatePanelUserSchema = z
+    .object({
+        firstName: z.string().trim().min(1, "Укажите имя").optional(),
+        lastName: z.string().trim().min(1, "Укажите фамилию").optional(),
+        phone: z
+            .string()
+            .trim()
+            .min(10, "Введите корректный номер телефона")
+            .optional(),
+        email: emailField.optional(),
+        birthDate: z.string().trim().optional(),
+        password: z
+            .string()
+            .min(6, "Пароль должен быть не короче 6 символов")
+            .optional(),
+        role: z.enum(["guest", "user", "manager", "admin"]).optional(),
     })
     .strict();
 
@@ -170,6 +191,80 @@ export async function getAllUsersForPanel() {
         .map(sanitizeUser);
 }
 
+export async function getPanelUserById(userId: string) {
+    const user = await findUserById(userId);
+
+    if (!user) {
+        throw createError(404, "Пользователь не найден");
+    }
+
+    return sanitizeUser(user);
+}
+
+export async function updatePanelUser(userId: string, payload: unknown) {
+    const updates = updatePanelUserSchema.parse(payload);
+    const user = await findUserById(userId);
+
+    if (!user) {
+        throw createError(404, "Пользователь не найден");
+    }
+
+    if (updates.email && updates.email !== user.email) {
+        const existingUser = await findUserByEmail(updates.email);
+
+        if (existingUser && existingUser.id !== user.id) {
+            throw createError(409, "Пользователь с таким email уже существует");
+        }
+    }
+
+    const now = new Date().toISOString();
+
+    return sanitizeUser(
+        await updateUserRecord({
+            ...user,
+            firstName: updates.firstName ?? user.firstName,
+            lastName: updates.lastName ?? user.lastName,
+            phone: updates.phone ?? user.phone,
+            email: updates.email ?? user.email,
+            birthDate: normalizeOptional(updates.birthDate) ?? user.birthDate,
+            password: updates.password ? hashPassword(updates.password) : user.password,
+            role: updates.role ?? user.role,
+            updatedAt: now,
+            lastActivityAt: now,
+        }),
+    );
+}
+
+export async function updatePanelUserAvatar(params: {
+    userId: string;
+    body: Buffer;
+    mimeType: string;
+    baseUrl: string;
+}) {
+    const user = await findUserById(params.userId);
+
+    if (!user) {
+        throw createError(404, "Пользователь не найден");
+    }
+
+    const relativeAvatarUrl = saveAvatarFile({
+        userId: user.id,
+        body: params.body,
+        mimeType: params.mimeType,
+        currentAvatarUrl: user.avatarUrl,
+    });
+    const now = new Date().toISOString();
+
+    return sanitizeUser(
+        await updateUserRecord({
+            ...user,
+            avatarUrl: `${params.baseUrl}${relativeAvatarUrl}`,
+            updatedAt: now,
+            lastActivityAt: now,
+        }),
+    );
+}
+
 export function sanitizeUser(user: StoredUser): PublicUser {
     return {
         id: user.id,
@@ -182,6 +277,14 @@ export function sanitizeUser(user: StoredUser): PublicUser {
         authStatus: user.authStatus,
         role: user.role,
     };
+}
+
+function normalizeOptional(value: string | undefined) {
+    if (value === undefined) {
+        return undefined;
+    }
+
+    return value.trim() || null;
 }
 
 async function buildSession(user: StoredUser): Promise<AuthSessionResponse> {
