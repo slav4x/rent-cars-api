@@ -8,7 +8,7 @@ import { saveCarMediaFile } from "./lib/uploads.js";
 import { getAccountProfile, updateAccountAvatar, updateAccountProfile, } from "./modules/account/account.service.js";
 import { getVerificationOverview, submitVerificationRequest, uploadVerificationFile, } from "./modules/verification/verification.service.js";
 import { addFavorite, getFavoriteCarIds, getFavoriteCars, removeFavorite, } from "./modules/favorites/favorites.service.js";
-import { createCar, getCarByPublicSlug, getCarForPanel, getCarOptions, getCarsForPanel, getCarsForPublic, updateCar, } from "./modules/cars/cars.service.js";
+import { createCar, getCarByPublicSlug, getCarForPanel, getCarOptions, getPublicCarCities, getCarsForPanel, getCarsForPublic, updateCar, } from "./modules/cars/cars.service.js";
 import { createUser, getAllUsersForPanel, getPanelUsers, getPanelUserById, getUsersForDev, loginUser, requestPasswordReset, updatePanelUser, updatePanelUserAvatar, } from "./modules/auth/auth.service.js";
 const app = express();
 app.disable("x-powered-by");
@@ -215,6 +215,14 @@ app.get("/api/panel/cars", async (request, response, next) => {
 app.get("/api/cars", async (_request, response, next) => {
     try {
         response.json(await getCarsForPublic());
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.get("/api/cities", async (_request, response, next) => {
+    try {
+        response.json(await getPublicCarCities());
     }
     catch (error) {
         next(error);
