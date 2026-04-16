@@ -142,12 +142,21 @@ export async function refreshUserSession(payload) {
     }
     return withTransaction(async (client) => {
         const now = new Date().toISOString();
-        await revokeRefreshSession(existingSession.id, now, client);
-        return buildSession(await updateUserRecord({
+        const updatedUser = await updateUserRecord({
             ...user,
             updatedAt: now,
             lastActivityAt: now,
-        }, client), client);
+        }, client);
+        return {
+            token: await createAuthToken({
+                sub: updatedUser.id,
+                email: updatedUser.email,
+                role: updatedUser.role,
+            }),
+            refreshToken: data.refreshToken,
+            user: sanitizeUser(updatedUser),
+            createdAt: updatedUser.createdAt,
+        };
     });
 }
 export async function getUsersForDev() {

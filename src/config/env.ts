@@ -18,7 +18,10 @@ export const env = loadEnv();
 function loadEnv(): AppEnv {
     const nodeEnv = process.env.NODE_ENV ?? "development";
     const isProduction = nodeEnv === "production";
-    const clientOrigins = parseOrigins(process.env.CLIENT_ORIGIN);
+    const clientOrigins = parseOrigins(
+        process.env.CLIENT_ORIGIN?.trim() ||
+            (isProduction ? "" : DEFAULT_CLIENT_ORIGIN),
+    );
     const databaseUrl =
         process.env.DATABASE_URL?.trim() ||
         (isProduction ? "" : DEFAULT_DATABASE_URL);
@@ -74,9 +77,7 @@ function loadEnv(): AppEnv {
 }
 
 function parseOrigins(value?: string) {
-    const raw = value?.trim() ? value : DEFAULT_CLIENT_ORIGIN;
-
-    return raw
+    return (value ?? "")
         .split(",")
         .map((origin) => origin.trim().replace(/\/+$/, ""))
         .filter(Boolean);
