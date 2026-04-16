@@ -59,6 +59,10 @@ export async function getPublicCarCities() {
     return listCarCities();
 }
 
+export async function getPublicCarCategories() {
+    return listCarCategories();
+}
+
 export async function getCarsForPanel() {
     const lookups = await buildCarLookups();
     return (await listCars()).map((car: CarRecord) => sanitizeCar(car, lookups));

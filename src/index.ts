@@ -33,6 +33,7 @@ import {
     getCarByPublicSlug,
     getCarForPanel,
     getCarOptions,
+    getPublicCarCategories,
     getPublicCarCities,
     getCarsForPanel,
     getCarsForPublic,
@@ -244,6 +245,14 @@ app.get("/api/cars", async (_request, response, next) => {
 app.get("/api/cities", async (_request, response, next) => {
     try {
         response.json(await getPublicCarCities());
+    } catch (error) {
+        next(error);
+    }
+});
+
+app.get("/api/categories", async (_request, response, next) => {
+    try {
+        response.json(await getPublicCarCategories());
     } catch (error) {
         next(error);
     }
