@@ -85,6 +85,23 @@ export async function findUserByEmail(email: string) {
     return row ? mapUser(row) : null;
 }
 
+export async function findUserByPhone(normalizedPhone: string) {
+    const alternatePhone =
+        normalizedPhone.startsWith("7")
+            ? `8${normalizedPhone.slice(1)}`
+            : normalizedPhone;
+    const row = await queryFirst<UserRow>(
+        `
+            SELECT id, first_name, last_name, phone, email, password, avatar_url, birth_date,
+                   auth_status, role, created_at, updated_at, last_login_at, last_booking_at, last_activity_at
+            FROM users
+            WHERE regexp_replace(phone, '[^0-9]', '', 'g') IN ($1, $2)
+        `,
+        [normalizedPhone, alternatePhone],
+    );
+    return row ? mapUser(row) : null;
+}
+
 export async function findUserById(id: string) {
     const row = await queryFirst<UserRow>(
         `

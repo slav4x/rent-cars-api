@@ -5,9 +5,15 @@ import { createAuthToken } from "../../lib/jwt.js";
 import { createRefreshToken, hashRefreshToken } from "../../lib/refresh-token.js";
 import { saveAvatarFile } from "../../lib/uploads.js";
 import { hashPassword, verifyPassword } from "../../lib/password.js";
-import { createUserRecord, findUserByEmail, findUserById, listUsers, updateUserRecord, } from "./auth.repository.js";
+import { createUserRecord, findUserByEmail, findUserById, findUserByPhone, listUsers, updateUserRecord, } from "./auth.repository.js";
 import { createRefreshSessionRecord, findRefreshSessionByTokenHash, revokeRefreshSession, } from "./refresh.repository.js";
 const emailField = z.email("Введите корректный email").transform((value) => value.trim().toLowerCase());
+const phoneLoginField = z
+    .string()
+    .trim()
+    .min(1, "Укажите номер телефона")
+    .transform((value) => normalizePhoneForLookup(value))
+    .refine((value) => value.length === 11, "Введите корректный номер телефона");
 const registerSchema = z
     .object({
     firstName: z.string().trim().min(1, "Укажите имя"),
@@ -15,17 +21,22 @@ const registerSchema = z
     phone: z.string().trim().min(10, "Введите корректный номер телефона"),
     email: emailField,
     password: z.string().min(6, "Пароль должен быть не короче 6 символов"),
+    acceptedPersonalDataProcessing: z
+        .boolean()
+        .refine((value) => value === true, "Необходимо согласие на обработку персональных данных"),
 })
     .strict();
 const loginSchema = z
     .object({
-    email: emailField,
+    identifierType: z.enum(["email", "phone"]),
+    login: z.string().trim().min(1, "Укажите email или номер телефона"),
     password: z.string().min(6, "Введите пароль"),
 })
     .strict();
 const resetPasswordSchema = z
     .object({
-    email: emailField,
+    identifierType: z.enum(["email", "phone"]),
+    login: z.string().trim().min(1, "Укажите email или номер телефона"),
 })
     .strict();
 const refreshTokenSchema = z
@@ -53,9 +64,18 @@ const updatePanelUserSchema = z
     .strict();
 export async function createUser(payload) {
     const data = registerSchema.parse(payload);
-    const existingUser = await findUserByEmail(data.email);
-    if (existingUser && existingUser.role !== "guest") {
-        throw createError(409, "Пользователь с таким email уже существует");
+    const normalizedPhone = normalizePhoneForLookup(data.phone);
+    const existingEmailUser = await findUserByEmail(data.email);
+    const existingPhoneUser = await findUserByPhone(normalizedPhone);
+    if (existingEmailUser &&
+        existingPhoneUser &&
+        existingEmailUser.id !== existingPhoneUser.id) {
+        throw createError(409, "Пользователь с таким email или номером телефона уже существует");
+    }
+    const existingUser = existingEmailUser ?? existingPhoneUser;
+    if ((existingEmailUser && existingEmailUser.role !== "guest") ||
+        (existingPhoneUser && existingPhoneUser.role !== "guest")) {
+        throw createError(409, "Пользователь с таким email или номером телефона уже существует");
     }
     if (existingUser?.role === "guest") {
         const now = new Date().toISOString();
@@ -93,9 +113,11 @@ export async function createUser(payload) {
 }
 export async function loginUser(payload) {
     const data = loginSchema.parse(payload);
-    const user = await findUserByEmail(data.email);
+    const user = data.identifierType === "email"
+        ? await findUserByEmail(emailField.parse(data.login))
+        : await findUserByPhone(phoneLoginField.parse(data.login));
     if (!user || !verifyPassword(data.password, user.password)) {
-        throw createError(401, "Неверный email или пароль");
+        throw createError(401, "Неверный email/телефон или пароль");
     }
     if (user.role === "guest") {
         throw createError(403, "Гостевой аккаунт неактивен. Завершите регистрацию с этой же почтой, чтобы активировать его.");
@@ -109,8 +131,27 @@ export async function loginUser(payload) {
         lastActivityAt: now,
     }, client), client));
 }
+function normalizePhoneForLookup(value) {
+    const digits = value.replace(/\D/g, "");
+    if (!digits) {
+        return "";
+    }
+    if (digits[0] === "8") {
+        return `7${digits.slice(1, 11)}`;
+    }
+    if (digits[0] === "7") {
+        return digits.slice(0, 11);
+    }
+    return `7${digits.slice(0, 10)}`;
+}
 export async function requestPasswordReset(payload) {
-    resetPasswordSchema.parse(payload);
+    const data = resetPasswordSchema.parse(payload);
+    if (data.identifierType === "email") {
+        emailField.parse(data.login);
+    }
+    else {
+        phoneLoginField.parse(data.login);
+    }
     return { ok: true };
 }
 export async function logoutUser(payload) {
