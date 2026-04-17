@@ -2,7 +2,12 @@ import { execute, queryFirst, queryRows } from "../../db/database.js";
 
 export type CarOptionRecord = {
     id: string;
+    slug?: string | null;
     name: string;
+    seoTitle?: string | null;
+    seoText?: string | null;
+    subdomain?: string | null;
+    hex?: string | null;
 };
 
 export type CarRecord = {
@@ -220,7 +225,7 @@ export async function updateCarRecord(car: CarRecord) {
 export async function listCarCategories() {
     return queryRows<CarOptionRecord>(
         `
-            SELECT id, name
+            SELECT id, slug, name, seo_title AS "seoTitle", seo_text AS "seoText"
             FROM car_categories
             ORDER BY sort_order ASC, name ASC
         `,
@@ -230,7 +235,7 @@ export async function listCarCategories() {
 export async function listCarCities() {
     return queryRows<CarOptionRecord>(
         `
-            SELECT id, name
+            SELECT id, name, subdomain
             FROM car_cities
             ORDER BY sort_order ASC, name ASC
         `,
@@ -240,7 +245,7 @@ export async function listCarCities() {
 export async function listCarBrands() {
     return queryRows<CarOptionRecord>(
         `
-            SELECT id, name
+            SELECT id, slug, name, seo_title AS "seoTitle", seo_text AS "seoText"
             FROM car_brands
             ORDER BY sort_order ASC, name ASC
         `,
@@ -250,7 +255,7 @@ export async function listCarBrands() {
 export async function listCarColors() {
     return queryRows<CarOptionRecord>(
         `
-            SELECT id, name
+            SELECT id, name, hex
             FROM car_colors
             ORDER BY sort_order ASC, name ASC
         `,

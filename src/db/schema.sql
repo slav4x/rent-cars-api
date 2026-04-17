@@ -67,94 +67,71 @@ CREATE INDEX IF NOT EXISTS idx_verification_files_request_id
 
 CREATE TABLE IF NOT EXISTS car_categories (
     id TEXT PRIMARY KEY,
+    slug TEXT UNIQUE,
     name TEXT NOT NULL,
+    seo_title TEXT,
+    seo_text TEXT NOT NULL DEFAULT '<p></p>',
     sort_order INTEGER NOT NULL DEFAULT 0
 );
 
-INSERT INTO car_categories (id, name, sort_order) VALUES
-    ('economy', 'Эконом', 1),
-    ('comfort', 'Комфорт', 2),
-    ('comfort_plus', 'Комфорт +', 3),
-    ('business', 'Бизнес', 4),
-    ('premium', 'Премиум', 5),
-    ('suv', 'Внедорожники', 6),
-    ('convertible', 'Кабриолеты', 7),
-    ('sport', 'Спортивные', 8),
-    ('muscle', 'Маслкары', 9),
-    ('electric', 'Электро', 10),
-    ('minivan', 'Минивэны', 11)
-ON CONFLICT(id) DO UPDATE SET
-    name = excluded.name,
-    sort_order = excluded.sort_order;
+ALTER TABLE car_categories
+    ADD COLUMN IF NOT EXISTS slug TEXT;
+
+ALTER TABLE car_categories
+    ADD COLUMN IF NOT EXISTS seo_title TEXT;
+
+ALTER TABLE car_categories
+    ADD COLUMN IF NOT EXISTS seo_text TEXT NOT NULL DEFAULT '<p></p>';
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_car_categories_slug
+    ON car_categories(slug)
+    WHERE slug IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS car_cities (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
+    subdomain TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0
 );
 
-INSERT INTO car_cities (id, name, sort_order) VALUES
-    ('saint-petersburg', 'Санкт-Петербург', 1),
-    ('moscow', 'Москва', 2),
-    ('sochi', 'Сочи', 3),
-    ('murmansk', 'Мурманск', 4)
-ON CONFLICT(id) DO UPDATE SET
-    name = excluded.name,
-    sort_order = excluded.sort_order;
+ALTER TABLE car_cities
+    ADD COLUMN IF NOT EXISTS subdomain TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_car_cities_subdomain
+    ON car_cities(subdomain)
+    WHERE subdomain IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS car_brands (
     id TEXT PRIMARY KEY,
+    slug TEXT UNIQUE,
     name TEXT NOT NULL,
+    seo_title TEXT,
+    seo_text TEXT NOT NULL DEFAULT '<p></p>',
     sort_order INTEGER NOT NULL DEFAULT 0
 );
 
-INSERT INTO car_brands (id, name, sort_order) VALUES
-    ('opel', 'Opel', 1),
-    ('mini', 'Mini', 2),
-    ('ram', 'Ram', 3),
-    ('skoda', 'Skoda', 4),
-    ('lexus', 'Lexus', 5),
-    ('chevrolet', 'Chevrolet', 6),
-    ('land-rover', 'Land Rover', 7),
-    ('toyota', 'Toyota', 8),
-    ('lixiang', 'Lixiang', 9),
-    ('ford', 'Ford', 10),
-    ('bmw', 'BMW', 11),
-    ('dodge', 'Dodge', 12),
-    ('kia', 'Kia', 13),
-    ('chery', 'Chery', 14),
-    ('hyundai', 'Hyundai', 15),
-    ('mercedes', 'Mercedes', 16),
-    ('volkswagen', 'Volkswagen', 17),
-    ('geely', 'Geely', 18),
-    ('porsche', 'Porsche', 19),
-    ('audi', 'Audi', 20),
-    ('haval', 'Haval', 21),
-    ('lada', 'Lada', 22),
-    ('tesla', 'Tesla', 23),
-    ('zeekr', 'Zeekr', 24),
-    ('smart', 'Smart', 25),
-    ('tank', 'Tank', 26),
-    ('omoda', 'Omoda', 27)
-ON CONFLICT(id) DO UPDATE SET
-    name = excluded.name,
-    sort_order = excluded.sort_order;
+ALTER TABLE car_brands
+    ADD COLUMN IF NOT EXISTS slug TEXT;
+
+ALTER TABLE car_brands
+    ADD COLUMN IF NOT EXISTS seo_title TEXT;
+
+ALTER TABLE car_brands
+    ADD COLUMN IF NOT EXISTS seo_text TEXT NOT NULL DEFAULT '<p></p>';
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_car_brands_slug
+    ON car_brands(slug)
+    WHERE slug IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS car_colors (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
+    hex TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0
 );
 
-INSERT INTO car_colors (id, name, sort_order) VALUES
-    ('black', 'Черный', 1),
-    ('white', 'Белый', 2),
-    ('gray', 'Серый', 3),
-    ('blue', 'Синий', 4),
-    ('red', 'Красный', 5)
-ON CONFLICT(id) DO UPDATE SET
-    name = excluded.name,
-    sort_order = excluded.sort_order;
+ALTER TABLE car_colors
+    ADD COLUMN IF NOT EXISTS hex TEXT;
 
 CREATE TABLE IF NOT EXISTS car_body_types (
     id TEXT PRIMARY KEY,
