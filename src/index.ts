@@ -44,6 +44,7 @@ import {
 	updatePanelUserAvatar,
 	type ApiAuthError
 } from './modules/auth/auth.service.js';
+import { submitContactRequest } from './modules/contact-requests/contact-requests.service.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -233,6 +234,14 @@ app.get('/api/cars', async (_request, response, next) => {
 app.get('/api/cities', async (_request, response, next) => {
 	try {
 		response.json(await getPublicCarCities());
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.post('/api/contact-requests', authRateLimit, async (request, response, next) => {
+	try {
+		response.status(201).json(await submitContactRequest(request.body));
 	} catch (error) {
 		next(error);
 	}

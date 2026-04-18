@@ -206,3 +206,15 @@ CREATE TABLE IF NOT EXISTS user_favorites (
 
 CREATE INDEX IF NOT EXISTS idx_user_favorites_user_id
     ON user_favorites(user_id);
+
+CREATE TABLE IF NOT EXISTS contact_requests (
+    id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    comment TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_contact_requests_source
+    ON contact_requests(source);
