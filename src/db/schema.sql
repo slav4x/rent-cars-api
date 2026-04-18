@@ -129,6 +129,7 @@ CREATE TABLE IF NOT EXISTS car_brands (
     id TEXT PRIMARY KEY,
     slug TEXT UNIQUE,
     name TEXT NOT NULL,
+    image_url TEXT,
     seo_title TEXT,
     seo_text TEXT NOT NULL DEFAULT '<p></p>',
     sort_order INTEGER NOT NULL DEFAULT 0
@@ -143,6 +144,9 @@ ALTER TABLE car_brands
 ALTER TABLE car_brands
     ADD COLUMN IF NOT EXISTS seo_text TEXT NOT NULL DEFAULT '<p></p>';
 
+ALTER TABLE car_brands
+    ADD COLUMN IF NOT EXISTS image_url TEXT;
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_car_brands_slug
     ON car_brands(slug)
     WHERE slug IS NOT NULL;
@@ -150,33 +154,34 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_car_brands_slug
 CREATE TABLE IF NOT EXISTS car_colors (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
+    slug TEXT UNIQUE,
     hex TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0
 );
 
 ALTER TABLE car_colors
+    ADD COLUMN IF NOT EXISTS slug TEXT;
+
+ALTER TABLE car_colors
     ADD COLUMN IF NOT EXISTS hex TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_car_colors_slug
+    ON car_colors(slug)
+    WHERE slug IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS car_body_types (
     id TEXT PRIMARY KEY,
+    slug TEXT UNIQUE,
     name TEXT NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0
 );
 
-INSERT INTO car_body_types (id, name, sort_order) VALUES
-    ('sedan', 'Седан', 1),
-    ('coupe', 'Купе', 2),
-    ('hatchback', 'Хэтчбек', 3),
-    ('wagon', 'Универсал', 4),
-    ('crossover', 'Кроссовер', 5),
-    ('suv', 'Внедорожник', 6),
-    ('convertible', 'Кабриолет', 7),
-    ('roadster', 'Родстер', 8),
-    ('pickup', 'Пикап', 9),
-    ('minivan', 'Минивэн', 10)
-ON CONFLICT(id) DO UPDATE SET
-    name = excluded.name,
-    sort_order = excluded.sort_order;
+ALTER TABLE car_body_types
+    ADD COLUMN IF NOT EXISTS slug TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_car_body_types_slug
+    ON car_body_types(slug)
+    WHERE slug IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS cars (
     id TEXT PRIMARY KEY,

@@ -64,3 +64,21 @@ export async function saveCarMediaFile(params: {
         mimeType: params.mimeType,
     });
 }
+
+export async function saveBrandImageFile(params: {
+    body: Buffer;
+    mimeType: string;
+}) {
+    if (!params.mimeType.startsWith("image/")) {
+        throw new Error("UNSUPPORTED_BRAND_IMAGE_TYPE");
+    }
+
+    const optimizedImage = await optimizeCarImage(params.body);
+
+    return savePublicObject({
+        directory: "brands",
+        fileName: `${crypto.randomUUID()}${optimizedImage.extension}`,
+        body: optimizedImage.body,
+        mimeType: optimizedImage.mimeType,
+    });
+}

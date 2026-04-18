@@ -84,6 +84,7 @@ async function syncCarReferenceData(client: PoolClient) {
     );
 
     await ensureReferenceColumn(client, "car_brands", "slug", "TEXT");
+    await ensureReferenceColumn(client, "car_brands", "image_url", "TEXT");
     await ensureReferenceColumn(client, "car_brands", "seo_title", "TEXT");
     await ensureReferenceColumn(
         client,
@@ -104,12 +105,15 @@ async function syncCarReferenceData(client: PoolClient) {
     await ensureReferenceColumn(client, "car_cities", "phone", "TEXT");
     await ensureReferenceColumn(client, "car_cities", "email", "TEXT");
     await ensureReferenceColumn(client, "car_cities", "map", "TEXT");
+    await ensureReferenceColumn(client, "car_colors", "slug", "TEXT");
     await ensureReferenceColumn(client, "car_colors", "hex", "TEXT");
+    await ensureReferenceColumn(client, "car_body_types", "slug", "TEXT");
 
     await seedCategories(client);
     await seedCities(client);
     await seedBrands(client);
     await seedColors(client);
+    await seedBodyTypes(client);
 }
 
 async function ensureReferenceColumn(
@@ -136,6 +140,7 @@ type BrandSeed = {
     id: string;
     slug: string;
     name: string;
+    imageUrl?: string | null;
     sortOrder: number;
     seoTitle: string | null;
     seoText: string;
@@ -158,8 +163,17 @@ type CitySeed = {
 
 type ColorSeed = {
     id: string;
+    slug: string;
     name: string;
     hex: string;
+    sortOrder: number;
+    legacyIds?: string[];
+};
+
+type BodyTypeSeed = {
+    id: string;
+    slug: string;
+    name: string;
     sortOrder: number;
     legacyIds?: string[];
 };
@@ -186,41 +200,54 @@ const CITY_SEEDS: CitySeed[] = [
 ];
 
 const BRAND_SEEDS: BrandSeed[] = [
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b001", slug: "opel", name: "Opel", sortOrder: 1, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b002", slug: "mini", name: "Mini", sortOrder: 2, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b003", slug: "ram", name: "Ram", sortOrder: 3, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b004", slug: "skoda", name: "Skoda", sortOrder: 4, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b005", slug: "lexus", name: "Lexus", sortOrder: 5, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b006", slug: "chevrolet", name: "Chevrolet", sortOrder: 6, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b007", slug: "land-rover", name: "Land Rover", sortOrder: 7, seoTitle: null, seoText: "<p></p>", legacyIds: ["range-rover"] },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b008", slug: "toyota", name: "Toyota", sortOrder: 8, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b009", slug: "lixiang", name: "Lixiang", sortOrder: 9, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b010", slug: "ford", name: "Ford", sortOrder: 10, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b011", slug: "bmw", name: "BMW", sortOrder: 11, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b012", slug: "dodge", name: "Dodge", sortOrder: 12, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b013", slug: "kia", name: "Kia", sortOrder: 13, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b014", slug: "chery", name: "Chery", sortOrder: 14, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b015", slug: "hyundai", name: "Hyundai", sortOrder: 15, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b016", slug: "mercedes", name: "Mercedes", sortOrder: 16, seoTitle: null, seoText: "<p></p>", legacyIds: ["mercedes-benz"] },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b017", slug: "volkswagen", name: "Volkswagen", sortOrder: 17, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b018", slug: "geely", name: "Geely", sortOrder: 18, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b019", slug: "porsche", name: "Porsche", sortOrder: 19, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b020", slug: "audi", name: "Audi", sortOrder: 20, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b021", slug: "haval", name: "Haval", sortOrder: 21, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b022", slug: "lada", name: "Lada", sortOrder: 22, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b023", slug: "tesla", name: "Tesla", sortOrder: 23, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b024", slug: "zeekr", name: "Zeekr", sortOrder: 24, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b025", slug: "smart", name: "Smart", sortOrder: 25, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b026", slug: "tank", name: "Tank", sortOrder: 26, seoTitle: null, seoText: "<p></p>" },
-    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b027", slug: "omoda", name: "Omoda", sortOrder: 27, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b001", slug: "opel", name: "Opel", imageUrl: null, sortOrder: 1, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b002", slug: "mini", name: "Mini", imageUrl: null, sortOrder: 2, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b003", slug: "ram", name: "Ram", imageUrl: null, sortOrder: 3, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b004", slug: "skoda", name: "Skoda", imageUrl: null, sortOrder: 4, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b005", slug: "lexus", name: "Lexus", imageUrl: null, sortOrder: 5, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b006", slug: "chevrolet", name: "Chevrolet", imageUrl: null, sortOrder: 6, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b007", slug: "land-rover", name: "Land Rover", imageUrl: null, sortOrder: 7, seoTitle: null, seoText: "<p></p>", legacyIds: ["range-rover"] },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b008", slug: "toyota", name: "Toyota", imageUrl: null, sortOrder: 8, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b009", slug: "lixiang", name: "Lixiang", imageUrl: null, sortOrder: 9, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b010", slug: "ford", name: "Ford", imageUrl: null, sortOrder: 10, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b011", slug: "bmw", name: "BMW", imageUrl: null, sortOrder: 11, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b012", slug: "dodge", name: "Dodge", imageUrl: null, sortOrder: 12, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b013", slug: "kia", name: "Kia", imageUrl: null, sortOrder: 13, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b014", slug: "chery", name: "Chery", imageUrl: null, sortOrder: 14, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b015", slug: "hyundai", name: "Hyundai", imageUrl: null, sortOrder: 15, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b016", slug: "mercedes", name: "Mercedes", imageUrl: null, sortOrder: 16, seoTitle: null, seoText: "<p></p>", legacyIds: ["mercedes-benz"] },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b017", slug: "volkswagen", name: "Volkswagen", imageUrl: null, sortOrder: 17, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b018", slug: "geely", name: "Geely", imageUrl: null, sortOrder: 18, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b019", slug: "porsche", name: "Porsche", imageUrl: null, sortOrder: 19, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b020", slug: "audi", name: "Audi", imageUrl: null, sortOrder: 20, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b021", slug: "haval", name: "Haval", imageUrl: null, sortOrder: 21, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b022", slug: "lada", name: "Lada", imageUrl: null, sortOrder: 22, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b023", slug: "tesla", name: "Tesla", imageUrl: null, sortOrder: 23, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b024", slug: "zeekr", name: "Zeekr", imageUrl: null, sortOrder: 24, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b025", slug: "smart", name: "Smart", imageUrl: null, sortOrder: 25, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b026", slug: "tank", name: "Tank", imageUrl: null, sortOrder: 26, seoTitle: null, seoText: "<p></p>" },
+    { id: "718e2a2c-d0f4-4208-b5bc-6a3848f7b027", slug: "omoda", name: "Omoda", imageUrl: null, sortOrder: 27, seoTitle: null, seoText: "<p></p>" },
 ];
 
 const COLOR_SEEDS: ColorSeed[] = [
-    { id: "d7305d86-4ed1-4f6a-aab7-0372f1c61001", name: "Черный", hex: "#000000", sortOrder: 1, legacyIds: ["black"] },
-    { id: "d7305d86-4ed1-4f6a-aab7-0372f1c61002", name: "Белый", hex: "#FFFFFF", sortOrder: 2, legacyIds: ["white"] },
-    { id: "d7305d86-4ed1-4f6a-aab7-0372f1c61003", name: "Серый", hex: "#808080", sortOrder: 3, legacyIds: ["gray"] },
-    { id: "d7305d86-4ed1-4f6a-aab7-0372f1c61004", name: "Синий", hex: "#2563EB", sortOrder: 4, legacyIds: ["blue"] },
-    { id: "d7305d86-4ed1-4f6a-aab7-0372f1c61005", name: "Красный", hex: "#DC2626", sortOrder: 5, legacyIds: ["red"] },
+    { id: "d7305d86-4ed1-4f6a-aab7-0372f1c61001", slug: "chernyy", name: "Черный", hex: "#000000", sortOrder: 1, legacyIds: ["black"] },
+    { id: "d7305d86-4ed1-4f6a-aab7-0372f1c61002", slug: "belyy", name: "Белый", hex: "#FFFFFF", sortOrder: 2, legacyIds: ["white"] },
+    { id: "d7305d86-4ed1-4f6a-aab7-0372f1c61003", slug: "seryy", name: "Серый", hex: "#808080", sortOrder: 3, legacyIds: ["gray"] },
+    { id: "d7305d86-4ed1-4f6a-aab7-0372f1c61004", slug: "siniy", name: "Синий", hex: "#2563EB", sortOrder: 4, legacyIds: ["blue"] },
+    { id: "d7305d86-4ed1-4f6a-aab7-0372f1c61005", slug: "krasnyy", name: "Красный", hex: "#DC2626", sortOrder: 5, legacyIds: ["red"] },
+];
+
+const BODY_TYPE_SEEDS: BodyTypeSeed[] = [
+    { id: "8f87557c-c305-4e65-bf13-09708f2bb001", slug: "sedan", name: "Седан", sortOrder: 1, legacyIds: ["sedan"] },
+    { id: "8f87557c-c305-4e65-bf13-09708f2bb002", slug: "coupe", name: "Купе", sortOrder: 2, legacyIds: ["coupe"] },
+    { id: "8f87557c-c305-4e65-bf13-09708f2bb003", slug: "hatchback", name: "Хэтчбек", sortOrder: 3, legacyIds: ["hatchback"] },
+    { id: "8f87557c-c305-4e65-bf13-09708f2bb004", slug: "wagon", name: "Универсал", sortOrder: 4, legacyIds: ["wagon"] },
+    { id: "8f87557c-c305-4e65-bf13-09708f2bb005", slug: "crossover", name: "Кроссовер", sortOrder: 5, legacyIds: ["crossover"] },
+    { id: "8f87557c-c305-4e65-bf13-09708f2bb006", slug: "suv", name: "Внедорожник", sortOrder: 6, legacyIds: ["suv"] },
+    { id: "8f87557c-c305-4e65-bf13-09708f2bb007", slug: "convertible", name: "Кабриолет", sortOrder: 7, legacyIds: ["convertible"] },
+    { id: "8f87557c-c305-4e65-bf13-09708f2bb008", slug: "roadster", name: "Родстер", sortOrder: 8, legacyIds: ["roadster"] },
+    { id: "8f87557c-c305-4e65-bf13-09708f2bb009", slug: "pickup", name: "Пикап", sortOrder: 9, legacyIds: ["pickup"] },
+    { id: "8f87557c-c305-4e65-bf13-09708f2bb010", slug: "minivan", name: "Минивэн", sortOrder: 10, legacyIds: ["minivan"] },
 ];
 
 async function seedCategories(client: PoolClient) {
@@ -283,9 +310,10 @@ async function seedBrands(client: PoolClient) {
         id: string;
         slug: string | null;
         name: string;
+        image_url: string | null;
         seo_title: string | null;
         seo_text: string | null;
-    }>("SELECT id, slug, name, seo_title, seo_text FROM car_brands");
+    }>("SELECT id, slug, name, image_url, seo_title, seo_text FROM car_brands");
 
     for (const seed of BRAND_SEEDS) {
         const existing = rows.rows.find(
@@ -298,25 +326,26 @@ async function seedBrands(client: PoolClient) {
 
         if (!existing) {
             await client.query(
-                `INSERT INTO car_brands (id, slug, name, seo_title, seo_text, sort_order)
-                 VALUES ($1, $2, $3, $4, $5, $6)
+                `INSERT INTO car_brands (id, slug, name, image_url, seo_title, seo_text, sort_order)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                  ON CONFLICT (id) DO UPDATE SET
                     slug = EXCLUDED.slug,
                     name = EXCLUDED.name,
+                    image_url = EXCLUDED.image_url,
                     seo_title = EXCLUDED.seo_title,
                     seo_text = EXCLUDED.seo_text,
                     sort_order = EXCLUDED.sort_order`,
-                [seed.id, seed.slug, seed.name, seed.seoTitle, seed.seoText, seed.sortOrder],
+                [seed.id, seed.slug, seed.name, seed.imageUrl ?? null, seed.seoTitle, seed.seoText, seed.sortOrder],
             );
             continue;
         }
 
         if (existing.id !== seed.id) {
             await client.query(
-                `INSERT INTO car_brands (id, slug, name, seo_title, seo_text, sort_order)
-                 VALUES ($1, $2, $3, $4, $5, $6)
+                `INSERT INTO car_brands (id, slug, name, image_url, seo_title, seo_text, sort_order)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                  ON CONFLICT (id) DO NOTHING`,
-                [seed.id, seed.slug, seed.name, seed.seoTitle, seed.seoText, seed.sortOrder],
+                [seed.id, seed.slug, seed.name, seed.imageUrl ?? null, seed.seoTitle, seed.seoText, seed.sortOrder],
             );
             await client.query(
                 `UPDATE cars SET brand_id = $1 WHERE brand_id = $2`,
@@ -327,9 +356,9 @@ async function seedBrands(client: PoolClient) {
 
         await client.query(
             `UPDATE car_brands
-             SET slug = $2, name = $3, seo_title = $4, seo_text = $5, sort_order = $6
+             SET slug = $2, name = $3, image_url = $4, seo_title = $5, seo_text = $6, sort_order = $7
              WHERE id = $1`,
-            [seed.id, seed.slug, seed.name, seed.seoTitle, seed.seoText, seed.sortOrder],
+            [seed.id, seed.slug, seed.name, seed.imageUrl ?? null, seed.seoTitle, seed.seoText, seed.sortOrder],
         );
     }
 }
@@ -413,9 +442,10 @@ async function seedCities(client: PoolClient) {
 async function seedColors(client: PoolClient) {
     const rows = await client.query<{
         id: string;
+        slug: string | null;
         name: string;
         hex: string | null;
-    }>("SELECT id, name, hex FROM car_colors");
+    }>("SELECT id, slug, name, hex FROM car_colors");
 
     for (const seed of COLOR_SEEDS) {
         const existing = rows.rows.find(
@@ -427,10 +457,10 @@ async function seedColors(client: PoolClient) {
 
         if (existing && existing.id !== seed.id) {
             await client.query(
-                `INSERT INTO car_colors (id, name, hex, sort_order)
-                 VALUES ($1, $2, $3, $4)
+                `INSERT INTO car_colors (id, name, slug, hex, sort_order)
+                 VALUES ($1, $2, $3, $4, $5)
                  ON CONFLICT (id) DO NOTHING`,
-                [seed.id, seed.name, seed.hex, seed.sortOrder],
+                [seed.id, seed.name, seed.slug, seed.hex, seed.sortOrder],
             );
             await client.query(
                 `UPDATE cars SET color_id = $1 WHERE color_id = $2`,
@@ -440,13 +470,64 @@ async function seedColors(client: PoolClient) {
         }
 
         await client.query(
-            `INSERT INTO car_colors (id, name, hex, sort_order)
-             VALUES ($1, $2, $3, $4)
+            `INSERT INTO car_colors (id, name, slug, hex, sort_order)
+             VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT (id) DO UPDATE SET
                 name = EXCLUDED.name,
+                slug = EXCLUDED.slug,
                 hex = EXCLUDED.hex,
                 sort_order = EXCLUDED.sort_order`,
-            [seed.id, seed.name, seed.hex, seed.sortOrder],
+            [seed.id, seed.name, seed.slug, seed.hex, seed.sortOrder],
+        );
+    }
+}
+
+async function seedBodyTypes(client: PoolClient) {
+    const rows = await client.query<{
+        id: string;
+        slug: string | null;
+        name: string;
+    }>("SELECT id, slug, name FROM car_body_types");
+
+    for (const seed of BODY_TYPE_SEEDS) {
+        const existing = rows.rows.find(
+            (row) =>
+                row.id === seed.id ||
+                row.slug === seed.slug ||
+                seed.legacyIds?.includes(row.id),
+        );
+
+        if (existing && existing.id !== seed.id) {
+            const temporarySlug = `${seed.slug}__migrating__${seed.id}`;
+
+            await client.query(
+                `INSERT INTO car_body_types (id, slug, name, sort_order)
+                 VALUES ($1, $2, $3, $4)
+                 ON CONFLICT (id) DO NOTHING`,
+                [seed.id, temporarySlug, seed.name, seed.sortOrder],
+            );
+            await client.query(
+                `UPDATE cars SET body_type_id = $1 WHERE body_type_id = $2`,
+                [seed.id, existing.id],
+            );
+            await client.query(`DELETE FROM car_body_types WHERE id = $1`, [existing.id]);
+            await client.query(
+                `UPDATE car_body_types
+                 SET slug = $2, name = $3, sort_order = $4
+                 WHERE id = $1`,
+                [seed.id, seed.slug, seed.name, seed.sortOrder],
+            );
+            continue;
+        }
+
+        await client.query(
+            `INSERT INTO car_body_types (id, slug, name, sort_order)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (id) DO UPDATE SET
+                slug = EXCLUDED.slug,
+                name = EXCLUDED.name,
+                sort_order = EXCLUDED.sort_order`,
+            [seed.id, seed.slug, seed.name, seed.sortOrder],
         );
     }
 }

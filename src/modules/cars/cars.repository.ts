@@ -4,6 +4,7 @@ export type CarOptionRecord = {
     id: string;
     slug?: string | null;
     name: string;
+    imageUrl?: string | null;
     seoTitle?: string | null;
     seoText?: string | null;
     subdomain?: string | null;
@@ -12,6 +13,7 @@ export type CarOptionRecord = {
     email?: string | null;
     map?: string | null;
     hex?: string | null;
+    sortOrder?: number | null;
 };
 
 export type CarRecord = {
@@ -229,7 +231,7 @@ export async function updateCarRecord(car: CarRecord) {
 export async function listCarCategories() {
     return queryRows<CarOptionRecord>(
         `
-            SELECT id, slug, name, seo_title AS "seoTitle", seo_text AS "seoText"
+            SELECT id, slug, name, seo_title AS "seoTitle", seo_text AS "seoText", sort_order AS "sortOrder"
             FROM car_categories
             ORDER BY sort_order ASC, name ASC
         `,
@@ -239,7 +241,7 @@ export async function listCarCategories() {
 export async function listCarCities() {
     return queryRows<CarOptionRecord>(
         `
-            SELECT id, name, subdomain, seo_title AS "seoTitle", seo_text AS "seoText", address, phone, email, map
+            SELECT id, name, subdomain, seo_title AS "seoTitle", seo_text AS "seoText", address, phone, email, map, sort_order AS "sortOrder"
             FROM car_cities
             ORDER BY sort_order ASC, name ASC
         `,
@@ -249,7 +251,7 @@ export async function listCarCities() {
 export async function listCarBrands() {
     return queryRows<CarOptionRecord>(
         `
-            SELECT id, slug, name, seo_title AS "seoTitle", seo_text AS "seoText"
+            SELECT id, slug, name, image_url AS "imageUrl", seo_title AS "seoTitle", seo_text AS "seoText", sort_order AS "sortOrder"
             FROM car_brands
             ORDER BY sort_order ASC, name ASC
         `,
@@ -259,7 +261,7 @@ export async function listCarBrands() {
 export async function listCarColors() {
     return queryRows<CarOptionRecord>(
         `
-            SELECT id, name, hex
+            SELECT id, name, slug, hex, sort_order AS "sortOrder"
             FROM car_colors
             ORDER BY sort_order ASC, name ASC
         `,
@@ -269,7 +271,7 @@ export async function listCarColors() {
 export async function listCarBodyTypes() {
     return queryRows<CarOptionRecord>(
         `
-            SELECT id, name
+            SELECT id, name, slug, sort_order AS "sortOrder"
             FROM car_body_types
             ORDER BY sort_order ASC, name ASC
         `,

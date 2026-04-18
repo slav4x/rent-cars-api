@@ -6,7 +6,7 @@ import { env } from './config/env.js';
 import { attachAuthContext, requireAuth, requirePanelRole, requireUserId } from './lib/http/auth.js';
 import { createRateLimit } from './lib/http/rate-limit.js';
 import { getUploadsRoot } from './lib/uploads.js';
-import { saveCarMediaFile } from './lib/uploads.js';
+import { saveBrandImageFile, saveCarMediaFile } from './lib/uploads.js';
 import { getAccountProfile, updateAccountAvatar, updateAccountProfile } from './modules/account/account.service.js';
 import {
 	getVerificationOverview,
@@ -24,6 +24,7 @@ import {
 	getCarByPublicSlug,
 	getCarForPanel,
 	getCarOptions,
+	getPublicCarBrands,
 	getPublicCarCategories,
 	getPublicCarCities,
 	getCarsForPanel,
@@ -46,6 +47,14 @@ import {
 } from './modules/auth/auth.service.js';
 import { submitContactRequest } from './modules/contact-requests/contact-requests.service.js';
 import { createBooking, getAccountBookings, getPanelBookings } from './modules/bookings/bookings.service.js';
+import {
+	createReferenceEntity,
+	getReferenceItems,
+	parseReferenceEntityKind,
+	removeReferenceEntity,
+	reorderReferenceEntities,
+	updateReferenceEntity
+} from './modules/reference-data/reference-data.service.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -216,6 +225,91 @@ app.get('/api/panel/car-options', requirePanelRole, async (_request, response, n
 	}
 });
 
+app.get('/api/panel/settings/:entity', requirePanelRole, async (request, response, next) => {
+	try {
+		const entity = parseReferenceEntityKind(getRouteParam(request, 'entity') ?? '');
+		response.json(await getReferenceItems(entity));
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.post('/api/panel/settings/:entity', requirePanelRole, async (request, response, next) => {
+	try {
+		const entity = parseReferenceEntityKind(getRouteParam(request, 'entity') ?? '');
+		response.status(201).json(await createReferenceEntity(entity, request.body));
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.patch('/api/panel/settings/:entity/reorder', requirePanelRole, async (request, response, next) => {
+	try {
+		const entity = parseReferenceEntityKind(getRouteParam(request, 'entity') ?? '');
+		response.json(await reorderReferenceEntities(entity, request.body));
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.patch('/api/panel/settings/:entity/:id', requirePanelRole, async (request, response, next) => {
+	try {
+		const entity = parseReferenceEntityKind(getRouteParam(request, 'entity') ?? '');
+		const id = getRouteParam(request, 'id');
+		if (!id) {
+			response.status(400).json({ message: 'Некорректный идентификатор элемента' });
+			return;
+		}
+
+		response.json(await updateReferenceEntity(entity, id, request.body));
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.delete('/api/panel/settings/:entity/:id', requirePanelRole, async (request, response, next) => {
+	try {
+		const entity = parseReferenceEntityKind(getRouteParam(request, 'entity') ?? '');
+		const id = getRouteParam(request, 'id');
+		if (!id) {
+			response.status(400).json({ message: 'Некорректный идентификатор элемента' });
+			return;
+		}
+
+		response.json(await removeReferenceEntity(entity, id));
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.post(
+	'/api/panel/settings/brands/image',
+	express.raw({
+		type: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+		limit: '20mb'
+	}),
+	requirePanelRole,
+	async (request, response, next) => {
+		try {
+			const mimeType = request.header('content-type');
+
+			if (!mimeType || !Buffer.isBuffer(request.body) || request.body.length === 0) {
+				response.status(400).json({ message: 'Файл не передан' });
+				return;
+			}
+
+			const imageUrl = await saveBrandImageFile({
+				body: request.body,
+				mimeType
+			});
+
+			response.status(201).json({ url: imageUrl });
+		} catch (error) {
+			next(error);
+		}
+	}
+);
+
 app.get('/api/panel/cars', requirePanelRole, async (_request, response, next) => {
 	try {
 		response.json(await getCarsForPanel());
@@ -284,6 +378,14 @@ app.get('/api/panel/bookings', requirePanelRole, async (_request, response, next
 app.get('/api/categories', async (_request, response, next) => {
 	try {
 		response.json(await getPublicCarCategories());
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.get('/api/brands', async (_request, response, next) => {
+	try {
+		response.json(await getPublicCarBrands());
 	} catch (error) {
 		next(error);
 	}

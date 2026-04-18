@@ -43,6 +43,7 @@ const s3Client = isS3Enabled
 if (!isS3Enabled) {
     mkdirSync(join(uploadsRoot, "avatars"), { recursive: true });
     mkdirSync(join(uploadsRoot, "cars"), { recursive: true });
+    mkdirSync(join(uploadsRoot, "brands"), { recursive: true });
 }
 
 export function getUploadsRoot() {
@@ -50,7 +51,7 @@ export function getUploadsRoot() {
 }
 
 export async function savePublicObject(params: {
-    directory: "avatars" | "cars";
+    directory: "avatars" | "cars" | "brands";
     fileName: string;
     body: Buffer;
     mimeType: string;
