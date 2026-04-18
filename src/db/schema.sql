@@ -223,6 +223,43 @@ CREATE TABLE IF NOT EXISTS user_favorites (
 CREATE INDEX IF NOT EXISTS idx_user_favorites_user_id
     ON user_favorites(user_id);
 
+CREATE TABLE IF NOT EXISTS bookings (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    car_id TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    payment_status TEXT NOT NULL DEFAULT 'unpaid',
+    full_name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL,
+    pickup_at TEXT NOT NULL,
+    return_at TEXT NOT NULL,
+    rental_days INTEGER NOT NULL,
+    price_per_day INTEGER NOT NULL,
+    total_price INTEGER NOT NULL,
+    pickup_location_type TEXT NOT NULL,
+    pickup_address TEXT NOT NULL,
+    return_address TEXT NOT NULL,
+    return_city_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (car_id) REFERENCES cars(id),
+    FOREIGN KEY (return_city_id) REFERENCES car_cities(id)
+);
+
+ALTER TABLE bookings
+    ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'unpaid';
+
+CREATE INDEX IF NOT EXISTS idx_bookings_user_id
+    ON bookings(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_bookings_car_id
+    ON bookings(car_id);
+
+CREATE INDEX IF NOT EXISTS idx_bookings_status
+    ON bookings(status);
+
 CREATE TABLE IF NOT EXISTS contact_requests (
     id TEXT PRIMARY KEY,
     source TEXT NOT NULL,

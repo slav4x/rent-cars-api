@@ -45,6 +45,7 @@ import {
 	type ApiAuthError
 } from './modules/auth/auth.service.js';
 import { submitContactRequest } from './modules/contact-requests/contact-requests.service.js';
+import { createBooking, getAccountBookings, getPanelBookings } from './modules/bookings/bookings.service.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -242,6 +243,39 @@ app.get('/api/cities', async (_request, response, next) => {
 app.post('/api/contact-requests', authRateLimit, async (request, response, next) => {
 	try {
 		response.status(201).json(await submitContactRequest(request.body));
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.post('/api/bookings', authRateLimit, async (request, response, next) => {
+	try {
+		response.status(201).json(
+			await createBooking(request.body, {
+				userId: request.userId
+			})
+		);
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.get('/api/account/bookings', requireAuth, async (request, response, next) => {
+	try {
+		const userId = requireUserId(request, response);
+		if (!userId) {
+			return;
+		}
+
+		response.json(await getAccountBookings(userId));
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.get('/api/panel/bookings', requirePanelRole, async (_request, response, next) => {
+	try {
+		response.json(await getPanelBookings());
 	} catch (error) {
 		next(error);
 	}
