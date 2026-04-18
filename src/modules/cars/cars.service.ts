@@ -194,6 +194,7 @@ export function sanitizeCar(
         categoryName: lookups?.categories.get(car.categoryId) ?? car.categoryId,
         cityId: car.cityId,
         cityName: lookups?.cities.get(car.cityId) ?? car.cityId,
+        citySubdomain: lookups?.citySubdomains.get(car.cityId) ?? undefined,
         brandId: car.brandId,
         brandName: lookups?.brands.get(car.brandId) ?? car.brandId,
         colorId: car.colorId,
@@ -268,6 +269,14 @@ async function buildCarLookups() {
             (await listCarCities()).map((option: { id: string; name: string }) => [
                 option.id,
                 option.name,
+            ]),
+        ),
+        citySubdomains: new Map(
+            (
+                await listCarCities()
+            ).map((option: { id: string; subdomain?: string | null }) => [
+                option.id,
+                option.subdomain ?? null,
             ]),
         ),
         brands: new Map(

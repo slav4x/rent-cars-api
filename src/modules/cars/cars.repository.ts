@@ -239,7 +239,7 @@ export async function listCarCategories() {
 export async function listCarCities() {
     return queryRows<CarOptionRecord>(
         `
-            SELECT id, name, subdomain, address, phone, email, map
+            SELECT id, name, subdomain, seo_title AS "seoTitle", seo_text AS "seoText", address, phone, email, map
             FROM car_cities
             ORDER BY sort_order ASC, name ASC
         `,

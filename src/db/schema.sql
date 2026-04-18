@@ -91,6 +91,8 @@ CREATE TABLE IF NOT EXISTS car_cities (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     subdomain TEXT,
+    seo_title TEXT,
+    seo_text TEXT NOT NULL DEFAULT '<p></p>',
     address TEXT,
     phone TEXT,
     email TEXT,
@@ -100,6 +102,12 @@ CREATE TABLE IF NOT EXISTS car_cities (
 
 ALTER TABLE car_cities
     ADD COLUMN IF NOT EXISTS subdomain TEXT;
+
+ALTER TABLE car_cities
+    ADD COLUMN IF NOT EXISTS seo_title TEXT;
+
+ALTER TABLE car_cities
+    ADD COLUMN IF NOT EXISTS seo_text TEXT NOT NULL DEFAULT '<p></p>';
 
 ALTER TABLE car_cities
     ADD COLUMN IF NOT EXISTS address TEXT;
