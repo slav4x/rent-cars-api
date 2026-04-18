@@ -7,6 +7,10 @@ export type CarOptionRecord = {
     seoTitle?: string | null;
     seoText?: string | null;
     subdomain?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    map?: string | null;
     hex?: string | null;
 };
 
@@ -235,7 +239,7 @@ export async function listCarCategories() {
 export async function listCarCities() {
     return queryRows<CarOptionRecord>(
         `
-            SELECT id, name, subdomain
+            SELECT id, name, subdomain, address, phone, email, map
             FROM car_cities
             ORDER BY sort_order ASC, name ASC
         `,

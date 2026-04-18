@@ -91,11 +91,27 @@ CREATE TABLE IF NOT EXISTS car_cities (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     subdomain TEXT,
+    address TEXT,
+    phone TEXT,
+    email TEXT,
+    map TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0
 );
 
 ALTER TABLE car_cities
     ADD COLUMN IF NOT EXISTS subdomain TEXT;
+
+ALTER TABLE car_cities
+    ADD COLUMN IF NOT EXISTS address TEXT;
+
+ALTER TABLE car_cities
+    ADD COLUMN IF NOT EXISTS phone TEXT;
+
+ALTER TABLE car_cities
+    ADD COLUMN IF NOT EXISTS email TEXT;
+
+ALTER TABLE car_cities
+    ADD COLUMN IF NOT EXISTS map TEXT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_car_cities_subdomain
     ON car_cities(subdomain)
