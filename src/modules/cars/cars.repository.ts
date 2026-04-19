@@ -256,6 +256,7 @@ export async function countActiveBookingsByCarId(
             FROM bookings
             WHERE car_id = $1
               AND return_at > $2
+              AND status NOT IN ('cancelled', 'completed')
         `,
         [carId, nowIso],
     );

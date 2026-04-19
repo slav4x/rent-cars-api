@@ -147,6 +147,7 @@ export async function countActiveBookingsByCarId(carId, nowIso) {
             FROM bookings
             WHERE car_id = $1
               AND return_at > $2
+              AND status NOT IN ('cancelled', 'completed')
         `, [carId, nowIso]);
     return row?.count ?? 0;
 }
