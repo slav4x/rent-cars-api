@@ -1,4 +1,4 @@
-import { execute, queryRows } from "../../db/database.js";
+import { execute, queryFirst, queryRows } from "../../db/database.js";
 import type { PoolClient } from "pg";
 
 export type BookingRecord = {
@@ -21,6 +21,28 @@ export type BookingRecord = {
     returnCityId: string | null;
     createdAt: string;
     updatedAt: string;
+};
+
+type BookingRow = {
+    id: string;
+    user_id: string;
+    car_id: string;
+    status: string;
+    payment_status: string;
+    full_name: string;
+    phone: string;
+    email: string;
+    pickup_at: string;
+    return_at: string;
+    rental_days: number;
+    price_per_day: number;
+    total_price: number;
+    pickup_location_type: string;
+    pickup_address: string;
+    return_address: string;
+    return_city_id: string | null;
+    created_at: string;
+    updated_at: string;
 };
 
 export async function createBookingRecord(
@@ -59,6 +81,87 @@ export async function createBookingRecord(
             booking.returnCityId,
             booking.createdAt,
             booking.updatedAt,
+        ],
+        client,
+    );
+
+    return booking;
+}
+
+export async function findBookingById(id: string) {
+    const row = await queryFirst<BookingRow>(
+        `
+            SELECT
+                id,
+                user_id,
+                car_id,
+                status,
+                payment_status,
+                full_name,
+                phone,
+                email,
+                pickup_at,
+                return_at,
+                rental_days,
+                price_per_day,
+                total_price,
+                pickup_location_type,
+                pickup_address,
+                return_address,
+                return_city_id,
+                created_at,
+                updated_at
+            FROM bookings
+            WHERE id = $1
+        `,
+        [id],
+    );
+
+    return row ? mapBookingRow(row) : null;
+}
+
+export async function updateBookingRecord(
+    booking: BookingRecord,
+    client?: PoolClient,
+) {
+    await execute(
+        `
+            UPDATE bookings
+            SET
+                status = $1,
+                payment_status = $2,
+                full_name = $3,
+                phone = $4,
+                email = $5,
+                pickup_at = $6,
+                return_at = $7,
+                rental_days = $8,
+                price_per_day = $9,
+                total_price = $10,
+                pickup_location_type = $11,
+                pickup_address = $12,
+                return_address = $13,
+                return_city_id = $14,
+                updated_at = $15
+            WHERE id = $16
+        `,
+        [
+            booking.status,
+            booking.paymentStatus,
+            booking.fullName,
+            booking.phone,
+            booking.email,
+            booking.pickupAt,
+            booking.returnAt,
+            booking.rentalDays,
+            booking.pricePerDay,
+            booking.totalPrice,
+            booking.pickupLocationType,
+            booking.pickupAddress,
+            booking.returnAddress,
+            booking.returnCityId,
+            booking.updatedAt,
+            booking.id,
         ],
         client,
     );
@@ -243,4 +346,28 @@ function safeParseMediaUrls(value: string) {
     } catch {
         return [];
     }
+}
+
+function mapBookingRow(row: BookingRow): BookingRecord {
+    return {
+        id: row.id,
+        userId: row.user_id,
+        carId: row.car_id,
+        status: row.status,
+        paymentStatus: row.payment_status,
+        fullName: row.full_name,
+        phone: row.phone,
+        email: row.email,
+        pickupAt: row.pickup_at,
+        returnAt: row.return_at,
+        rentalDays: row.rental_days,
+        pricePerDay: row.price_per_day,
+        totalPrice: row.total_price,
+        pickupLocationType: row.pickup_location_type,
+        pickupAddress: row.pickup_address,
+        returnAddress: row.return_address,
+        returnCityId: row.return_city_id,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+    };
 }

@@ -49,7 +49,7 @@ import {
 	type ApiAuthError
 } from './modules/auth/auth.service.js';
 import { submitContactRequest } from './modules/contact-requests/contact-requests.service.js';
-import { createBooking, getAccountBookings, getPanelBookings } from './modules/bookings/bookings.service.js';
+import { applyPanelBookingAction, createBooking, getAccountBookings, getPanelBookings } from './modules/bookings/bookings.service.js';
 import {
 	createReferenceEntity,
 	getReferenceItems,
@@ -373,6 +373,26 @@ app.get('/api/account/bookings', requireAuth, async (request, response, next) =>
 app.get('/api/panel/bookings', requirePanelRole, async (_request, response, next) => {
 	try {
 		response.json(await getPanelBookings());
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.patch('/api/panel/bookings/:id', requirePanelRole, async (request, response, next) => {
+	try {
+		const bookingId = getRouteParam(request, 'id');
+		if (!bookingId) {
+			response.status(400).json({ message: 'Некорректный идентификатор бронирования' });
+			return;
+		}
+
+		const action = typeof request.body?.action === 'string' ? request.body.action.trim() : '';
+		if (!action) {
+			response.status(400).json({ message: 'Некорректное действие' });
+			return;
+		}
+
+		response.json(await applyPanelBookingAction(bookingId, action));
 	} catch (error) {
 		next(error);
 	}

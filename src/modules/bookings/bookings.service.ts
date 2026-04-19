@@ -12,7 +12,9 @@ import {
 } from "../auth/auth.repository.js";
 import {
     createBookingRecord,
+    findBookingById,
     listBookings,
+    updateBookingRecord,
     type BookingListItem,
 } from "./bookings.repository.js";
 import { createError } from "../auth/auth.service.js";
@@ -38,6 +40,8 @@ const bookingPayloadSchema = z
 type CreateBookingContext = {
     userId?: string;
 };
+
+const panelBookingActionSchema = z.enum(["confirm", "complete", "cancel"]);
 
 export async function createBooking(
     payload: unknown,
@@ -128,6 +132,79 @@ export async function getAccountBookings(userId: string) {
 
 export async function getPanelBookings() {
     return (await listBookings()).map(sanitizeBooking);
+}
+
+export async function applyPanelBookingAction(id: string, action: unknown) {
+    const nextAction = panelBookingActionSchema.parse(action);
+    const booking = await findBookingById(id);
+
+    if (!booking) {
+        throw createError(404, "Бронирование не найдено");
+    }
+
+    const bookingListItem = (await listBookings()).find(
+        (item: BookingListItem) => item.id === id,
+    );
+
+    if (!bookingListItem) {
+        throw createError(404, "Бронирование не найдено");
+    }
+
+    const panelStatus = getPanelBookingStatus(bookingListItem);
+    const updatedAt = new Date().toISOString();
+
+    if (nextAction === "cancel") {
+        if (panelStatus === "cancelled" || panelStatus === "completed") {
+            throw createError(409, "Статус бронирования уже финальный");
+        }
+
+        await updateBookingRecord({
+            ...booking,
+            status: "cancelled",
+            updatedAt,
+        });
+    }
+
+    if (nextAction === "confirm") {
+        if (panelStatus !== "waiting_payment") {
+            throw createError(
+                409,
+                "Подтвердить можно только бронирование, ожидающее оплаты",
+            );
+        }
+
+        await updateBookingRecord({
+            ...booking,
+            status: "confirmed",
+            paymentStatus: "paid",
+            updatedAt,
+        });
+    }
+
+    if (nextAction === "complete") {
+        if (panelStatus !== "confirmed") {
+            throw createError(
+                409,
+                "Завершить можно только подтверждённое бронирование",
+            );
+        }
+
+        await updateBookingRecord({
+            ...booking,
+            status: "completed",
+            updatedAt,
+        });
+    }
+
+    const updatedBooking = (await listBookings()).find(
+        (item: BookingListItem) => item.id === id,
+    );
+
+    if (!updatedBooking) {
+        throw createError(404, "Бронирование не найдено");
+    }
+
+    return sanitizeBooking(updatedBooking);
 }
 
 async function resolveBookingUser(
@@ -306,16 +383,56 @@ function sanitizeBooking(booking: BookingListItem) {
 }
 
 function getDerivedBookingStatus(booking: BookingListItem) {
+    if (booking.status === "cancelled" || booking.status === "completed") {
+        return "history";
+    }
+
     if (Date.parse(booking.returnAt) <= Date.now()) {
         return "history";
     }
 
+    if (booking.status === "confirmed") {
+        return "upcoming";
+    }
+
     if (
-        booking.accountAuthStatus !== "approved" ||
+        !isApprovedAccountStatus(booking.accountAuthStatus) ||
         booking.paymentStatus !== "paid"
     ) {
         return "pending";
     }
 
     return "upcoming";
+}
+
+function getPanelBookingStatus(booking: BookingListItem) {
+    if (booking.status === "cancelled") {
+        return "cancelled";
+    }
+
+    if (booking.status === "completed" || Date.parse(booking.returnAt) <= Date.now()) {
+        return "completed";
+    }
+
+    if (booking.status === "confirmed") {
+        return "confirmed";
+    }
+
+    if (booking.accountAuthStatus === "pending") {
+        return "review";
+    }
+
+    if (!isApprovedAccountStatus(booking.accountAuthStatus)) {
+        return "awaiting_documents";
+    }
+
+    if (booking.paymentStatus === "paid") {
+        return "confirmed";
+    }
+
+    return "waiting_payment";
+}
+
+function isApprovedAccountStatus(status: string) {
+    return status === "approved" || status === "verified";
 }
