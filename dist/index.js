@@ -1,29 +1,31 @@
-import cors from "cors";
-import express from "express";
-import { ZodError } from "zod";
-import { getDatabasePath } from "./db/database.js";
-import { env } from "./config/env.js";
-import { attachAuthContext, requireAuth, requirePanelRole, requireUserId, } from "./lib/http/auth.js";
-import { createRateLimit } from "./lib/http/rate-limit.js";
-import { getUploadsRoot } from "./lib/uploads.js";
-import { saveCarMediaFile } from "./lib/uploads.js";
-import { getAccountProfile, updateAccountAvatar, updateAccountProfile, } from "./modules/account/account.service.js";
-import { getVerificationOverview, submitVerificationRequest, uploadVerificationFile, } from "./modules/verification/verification.service.js";
-import { addFavorite, getFavoriteCarIds, getFavoriteCars, removeFavorite, } from "./modules/favorites/favorites.service.js";
-import { createCar, getCarByPublicSlug, getCarForPanel, getCarOptions, getPublicCarCategories, getPublicCarCities, getCarsForPanel, getCarsForPublic, updateCar, } from "./modules/cars/cars.service.js";
-import { createUser, getAllUsersForPanel, getPanelUsers, getPanelUserById, getUsersForDev, loginUser, logoutUser, refreshUserSession, requestPasswordReset, updatePanelUser, updatePanelUserAvatar, } from "./modules/auth/auth.service.js";
+import cors from 'cors';
+import express from 'express';
+import { ZodError } from 'zod';
+import { env } from './config/env.js';
+import { attachAuthContext, requireAuth, requirePanelRole, requireUserId } from './lib/http/auth.js';
+import { createRateLimit } from './lib/http/rate-limit.js';
+import { getUploadsRoot } from './lib/uploads.js';
+import { saveBrandImageFile, saveCarMediaFile } from './lib/uploads.js';
+import { getAccountProfile, updateAccountAvatar, updateAccountProfile } from './modules/account/account.service.js';
+import { getVerificationOverview, submitVerificationRequest, uploadVerificationFile } from './modules/verification/verification.service.js';
+import { addFavorite, getFavoriteCarIds, getFavoriteCars, removeFavorite } from './modules/favorites/favorites.service.js';
+import { createCar, getCarByPublicSlug, getCarForPanel, getCarOptions, getPublicCarBrands, getPublicCarCategories, getPublicCarCities, getCarsForPanel, getCarsForPublic, moveCarToCity, removeCar, setCarArchiveState, updateCar } from './modules/cars/cars.service.js';
+import { createUser, getAllUsersForPanel, getPanelUsers, getPanelUserById, getUsersForDev, loginUser, logoutUser, refreshUserSession, requestPasswordReset, updatePanelUser, updatePanelUserAvatar } from './modules/auth/auth.service.js';
+import { submitContactRequest } from './modules/contact-requests/contact-requests.service.js';
+import { createBooking, getAccountBookings, getPanelBookings } from './modules/bookings/bookings.service.js';
+import { createReferenceEntity, getReferenceItems, parseReferenceEntityKind, removeReferenceEntity, reorderReferenceEntities, updateReferenceEntity } from './modules/reference-data/reference-data.service.js';
 const app = express();
-app.disable("x-powered-by");
+app.disable('x-powered-by');
 const port = env.port;
 const authRateLimit = createRateLimit({
     windowMs: 15 * 60 * 1000,
     maxRequests: 10,
-    message: "Слишком много попыток. Попробуйте позже.",
+    message: 'Слишком много попыток. Попробуйте позже.'
 });
-app.set("trust proxy", 1);
+app.set('trust proxy', 1);
 function getRouteParam(request, key) {
     const value = request.params[key];
-    if (typeof value === "string") {
+    if (typeof value === 'string') {
         return value;
     }
     return null;
@@ -34,30 +36,30 @@ app.use(cors({
             callback(null, true);
             return;
         }
-        const normalizedOrigin = origin.replace(/\/+$/, "");
+        const normalizedOrigin = origin.replace(/\/+$/, '');
         if (env.clientOrigins.includes(normalizedOrigin)) {
             callback(null, true);
             return;
         }
-        callback(new Error("CORS_ORIGIN_NOT_ALLOWED"));
+        callback(new Error('CORS_ORIGIN_NOT_ALLOWED'));
     },
-    credentials: true,
+    credentials: true
 }));
-app.use("/uploads", express.static(getUploadsRoot()));
+app.use('/uploads', express.static(getUploadsRoot()));
 app.use(express.json());
 app.use(attachAuthContext);
-app.get("/health", (_request, response) => {
+app.get('/health', (_request, response) => {
     response.json({
         ok: true,
-        service: "rent-cars-api",
-        databaseUrl: getDatabasePath(),
-        now: new Date().toISOString(),
+        service: 'rent-cars-api',
+        // databaseUrl: getDatabasePath(),
+        now: new Date().toISOString()
     });
 });
-app.get("/api/dev/users", async (_request, response, next) => {
+app.get('/api/dev/users', async (_request, response, next) => {
     try {
-        if (env.nodeEnv === "production") {
-            response.status(404).json({ message: "Маршрут не найден" });
+        if (env.nodeEnv === 'production') {
+            response.status(404).json({ message: 'Маршрут не найден' });
             return;
         }
         const users = await getUsersForDev();
@@ -67,7 +69,7 @@ app.get("/api/dev/users", async (_request, response, next) => {
         next(error);
     }
 });
-app.get("/api/panel/admins", requirePanelRole, async (_request, response, next) => {
+app.get('/api/panel/admins', requirePanelRole, async (_request, response, next) => {
     try {
         const users = await getPanelUsers();
         response.json(users);
@@ -76,7 +78,7 @@ app.get("/api/panel/admins", requirePanelRole, async (_request, response, next) 
         next(error);
     }
 });
-app.get("/api/panel/users", requirePanelRole, async (_request, response, next) => {
+app.get('/api/panel/users', requirePanelRole, async (_request, response, next) => {
     try {
         const users = await getAllUsersForPanel();
         response.json(users);
@@ -85,11 +87,11 @@ app.get("/api/panel/users", requirePanelRole, async (_request, response, next) =
         next(error);
     }
 });
-app.get("/api/panel/users/:id", requirePanelRole, async (request, response, next) => {
+app.get('/api/panel/users/:id', requirePanelRole, async (request, response, next) => {
     try {
-        const userId = getRouteParam(request, "id");
+        const userId = getRouteParam(request, 'id');
         if (!userId) {
-            response.status(400).json({ message: "Некорректный идентификатор пользователя" });
+            response.status(400).json({ message: 'Некорректный идентификатор пользователя' });
             return;
         }
         response.json(await getPanelUserById(userId));
@@ -98,11 +100,11 @@ app.get("/api/panel/users/:id", requirePanelRole, async (request, response, next
         next(error);
     }
 });
-app.patch("/api/panel/users/:id", requirePanelRole, async (request, response, next) => {
+app.patch('/api/panel/users/:id', requirePanelRole, async (request, response, next) => {
     try {
-        const userId = getRouteParam(request, "id");
+        const userId = getRouteParam(request, 'id');
         if (!userId) {
-            response.status(400).json({ message: "Некорректный идентификатор пользователя" });
+            response.status(400).json({ message: 'Некорректный идентификатор пользователя' });
             return;
         }
         response.json(await updatePanelUser(userId, request.body));
@@ -111,25 +113,25 @@ app.patch("/api/panel/users/:id", requirePanelRole, async (request, response, ne
         next(error);
     }
 });
-app.post("/api/panel/users/:id/avatar", requirePanelRole, async (request, response, next) => {
+app.post('/api/panel/users/:id/avatar', requirePanelRole, async (request, response, next) => {
     try {
         const chunks = [];
-        request.on("data", (chunk) => {
+        request.on('data', (chunk) => {
             chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
         });
-        request.on("end", async () => {
+        request.on('end', async () => {
             try {
-                const mimeType = request.headers["content-type"] ?? "";
-                if (!mimeType.startsWith("image/")) {
+                const mimeType = request.headers['content-type'] ?? '';
+                if (!mimeType.startsWith('image/')) {
                     response.status(400).json({
-                        message: "Поддерживаются только изображения",
+                        message: 'Поддерживаются только изображения'
                     });
                     return;
                 }
-                const userId = getRouteParam(request, "id");
+                const userId = getRouteParam(request, 'id');
                 if (!userId) {
                     response.status(400).json({
-                        message: "Некорректный идентификатор пользователя",
+                        message: 'Некорректный идентификатор пользователя'
                     });
                     return;
                 }
@@ -137,7 +139,7 @@ app.post("/api/panel/users/:id/avatar", requirePanelRole, async (request, respon
                     userId,
                     body: Buffer.concat(chunks),
                     mimeType,
-                    baseUrl: `${request.protocol}://${request.get("host")}`,
+                    baseUrl: `${request.protocol}://${request.get('host')}`
                 });
                 response.json(user);
             }
@@ -145,13 +147,13 @@ app.post("/api/panel/users/:id/avatar", requirePanelRole, async (request, respon
                 next(error);
             }
         });
-        request.on("error", next);
+        request.on('error', next);
     }
     catch (error) {
         next(error);
     }
 });
-app.get("/api/panel/car-options", requirePanelRole, async (_request, response, next) => {
+app.get('/api/panel/car-options', requirePanelRole, async (_request, response, next) => {
     try {
         response.json(await getCarOptions());
     }
@@ -159,7 +161,82 @@ app.get("/api/panel/car-options", requirePanelRole, async (_request, response, n
         next(error);
     }
 });
-app.get("/api/panel/cars", requirePanelRole, async (_request, response, next) => {
+app.get('/api/panel/settings/:entity', requirePanelRole, async (request, response, next) => {
+    try {
+        const entity = parseReferenceEntityKind(getRouteParam(request, 'entity') ?? '');
+        response.json(await getReferenceItems(entity));
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.post('/api/panel/settings/:entity', requirePanelRole, async (request, response, next) => {
+    try {
+        const entity = parseReferenceEntityKind(getRouteParam(request, 'entity') ?? '');
+        response.status(201).json(await createReferenceEntity(entity, request.body));
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.patch('/api/panel/settings/:entity/reorder', requirePanelRole, async (request, response, next) => {
+    try {
+        const entity = parseReferenceEntityKind(getRouteParam(request, 'entity') ?? '');
+        response.json(await reorderReferenceEntities(entity, request.body));
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.patch('/api/panel/settings/:entity/:id', requirePanelRole, async (request, response, next) => {
+    try {
+        const entity = parseReferenceEntityKind(getRouteParam(request, 'entity') ?? '');
+        const id = getRouteParam(request, 'id');
+        if (!id) {
+            response.status(400).json({ message: 'Некорректный идентификатор элемента' });
+            return;
+        }
+        response.json(await updateReferenceEntity(entity, id, request.body));
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.delete('/api/panel/settings/:entity/:id', requirePanelRole, async (request, response, next) => {
+    try {
+        const entity = parseReferenceEntityKind(getRouteParam(request, 'entity') ?? '');
+        const id = getRouteParam(request, 'id');
+        if (!id) {
+            response.status(400).json({ message: 'Некорректный идентификатор элемента' });
+            return;
+        }
+        response.json(await removeReferenceEntity(entity, id));
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.post('/api/panel/settings/brands/image', express.raw({
+    type: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+    limit: '20mb'
+}), requirePanelRole, async (request, response, next) => {
+    try {
+        const mimeType = request.header('content-type');
+        if (!mimeType || !Buffer.isBuffer(request.body) || request.body.length === 0) {
+            response.status(400).json({ message: 'Файл не передан' });
+            return;
+        }
+        const imageUrl = await saveBrandImageFile({
+            body: request.body,
+            mimeType
+        });
+        response.status(201).json({ url: imageUrl });
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.get('/api/panel/cars', requirePanelRole, async (_request, response, next) => {
     try {
         response.json(await getCarsForPanel());
     }
@@ -167,7 +244,7 @@ app.get("/api/panel/cars", requirePanelRole, async (_request, response, next) =>
         next(error);
     }
 });
-app.get("/api/cars", async (_request, response, next) => {
+app.get('/api/cars', async (_request, response, next) => {
     try {
         response.json(await getCarsForPublic());
     }
@@ -175,7 +252,7 @@ app.get("/api/cars", async (_request, response, next) => {
         next(error);
     }
 });
-app.get("/api/cities", async (_request, response, next) => {
+app.get('/api/cities', async (_request, response, next) => {
     try {
         response.json(await getPublicCarCities());
     }
@@ -183,7 +260,45 @@ app.get("/api/cities", async (_request, response, next) => {
         next(error);
     }
 });
-app.get("/api/categories", async (_request, response, next) => {
+app.post('/api/contact-requests', authRateLimit, async (request, response, next) => {
+    try {
+        response.status(201).json(await submitContactRequest(request.body));
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.post('/api/bookings', authRateLimit, async (request, response, next) => {
+    try {
+        response.status(201).json(await createBooking(request.body, {
+            userId: request.userId
+        }));
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.get('/api/account/bookings', requireAuth, async (request, response, next) => {
+    try {
+        const userId = requireUserId(request, response);
+        if (!userId) {
+            return;
+        }
+        response.json(await getAccountBookings(userId));
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.get('/api/panel/bookings', requirePanelRole, async (_request, response, next) => {
+    try {
+        response.json(await getPanelBookings());
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.get('/api/categories', async (_request, response, next) => {
     try {
         response.json(await getPublicCarCategories());
     }
@@ -191,11 +306,19 @@ app.get("/api/categories", async (_request, response, next) => {
         next(error);
     }
 });
-app.get("/api/cars/:slug", async (request, response, next) => {
+app.get('/api/brands', async (_request, response, next) => {
     try {
-        const slug = getRouteParam(request, "slug");
+        response.json(await getPublicCarBrands());
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.get('/api/cars/:slug', async (request, response, next) => {
+    try {
+        const slug = getRouteParam(request, 'slug');
         if (!slug) {
-            response.status(400).json({ message: "Некорректный slug автомобиля" });
+            response.status(400).json({ message: 'Некорректный slug автомобиля' });
             return;
         }
         response.json(await getCarByPublicSlug(slug));
@@ -204,11 +327,11 @@ app.get("/api/cars/:slug", async (request, response, next) => {
         next(error);
     }
 });
-app.get("/api/panel/cars/:id", requirePanelRole, async (request, response, next) => {
+app.get('/api/panel/cars/:id', requirePanelRole, async (request, response, next) => {
     try {
-        const carId = getRouteParam(request, "id");
+        const carId = getRouteParam(request, 'id');
         if (!carId) {
-            response.status(400).json({ message: "Некорректный идентификатор автомобиля" });
+            response.status(400).json({ message: 'Некорректный идентификатор автомобиля' });
             return;
         }
         response.json(await getCarForPanel(carId));
@@ -217,7 +340,7 @@ app.get("/api/panel/cars/:id", requirePanelRole, async (request, response, next)
         next(error);
     }
 });
-app.post("/api/panel/cars", requirePanelRole, async (request, response, next) => {
+app.post('/api/panel/cars', requirePanelRole, async (request, response, next) => {
     try {
         response.status(201).json(await createCar(request.body));
     }
@@ -225,11 +348,11 @@ app.post("/api/panel/cars", requirePanelRole, async (request, response, next) =>
         next(error);
     }
 });
-app.patch("/api/panel/cars/:id", requirePanelRole, async (request, response, next) => {
+app.patch('/api/panel/cars/:id', requirePanelRole, async (request, response, next) => {
     try {
-        const carId = getRouteParam(request, "id");
+        const carId = getRouteParam(request, 'id');
         if (!carId) {
-            response.status(400).json({ message: "Некорректный идентификатор автомобиля" });
+            response.status(400).json({ message: 'Некорректный идентификатор автомобиля' });
             return;
         }
         response.json(await updateCar(carId, request.body));
@@ -238,40 +361,78 @@ app.patch("/api/panel/cars/:id", requirePanelRole, async (request, response, nex
         next(error);
     }
 });
-app.post("/api/panel/cars/media", express.raw({
-    type: [
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "image/gif",
-        "video/mp4",
-        "video/webm",
-        "video/quicktime",
-    ],
-    limit: "30mb",
+app.patch('/api/panel/cars/:id/city', requirePanelRole, async (request, response, next) => {
+    try {
+        const carId = getRouteParam(request, 'id');
+        if (!carId) {
+            response.status(400).json({ message: 'Некорректный идентификатор автомобиля' });
+            return;
+        }
+        const cityId = typeof request.body?.cityId === 'string' ? request.body.cityId.trim() : '';
+        if (!cityId) {
+            response.status(400).json({ message: 'Некорректный идентификатор города' });
+            return;
+        }
+        response.json(await moveCarToCity(carId, cityId));
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.patch('/api/panel/cars/:id/archive', requirePanelRole, async (request, response, next) => {
+    try {
+        const carId = getRouteParam(request, 'id');
+        if (!carId) {
+            response.status(400).json({ message: 'Некорректный идентификатор автомобиля' });
+            return;
+        }
+        if (typeof request.body?.isArchived !== 'boolean') {
+            response.status(400).json({ message: 'Некорректное состояние архива' });
+            return;
+        }
+        response.json(await setCarArchiveState(carId, request.body.isArchived));
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.delete('/api/panel/cars/:id', requirePanelRole, async (request, response, next) => {
+    try {
+        const carId = getRouteParam(request, 'id');
+        if (!carId) {
+            response.status(400).json({ message: 'Некорректный идентификатор автомобиля' });
+            return;
+        }
+        response.json(await removeCar(carId));
+    }
+    catch (error) {
+        next(error);
+    }
+});
+app.post('/api/panel/cars/media', express.raw({
+    type: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/webm', 'video/quicktime'],
+    limit: '30mb'
 }), requirePanelRole, async (request, response, next) => {
     try {
-        const mimeType = request.header("content-type");
+        const mimeType = request.header('content-type');
         if (!mimeType || !Buffer.isBuffer(request.body) || request.body.length === 0) {
-            response.status(400).json({ message: "Файл не передан" });
+            response.status(400).json({ message: 'Файл не передан' });
             return;
         }
         const relativeUrl = await saveCarMediaFile({
             body: request.body,
-            mimeType,
+            mimeType
         });
-        const baseUrl = `${request.protocol}://${request.get("host")}`;
+        const baseUrl = `${request.protocol}://${request.get('host')}`;
         response.status(201).json({
-            url: relativeUrl.startsWith("http")
-                ? relativeUrl
-                : `${baseUrl}${relativeUrl}`,
+            url: relativeUrl.startsWith('http') ? relativeUrl : `${baseUrl}${relativeUrl}`
         });
     }
     catch (error) {
         next(error);
     }
 });
-app.get("/api/account/favorites", requireAuth, async (request, response, next) => {
+app.get('/api/account/favorites', requireAuth, async (request, response, next) => {
     try {
         const userId = requireUserId(request, response);
         if (!userId)
@@ -282,7 +443,7 @@ app.get("/api/account/favorites", requireAuth, async (request, response, next) =
         next(error);
     }
 });
-app.get("/api/account/favorite-ids", requireAuth, async (request, response, next) => {
+app.get('/api/account/favorite-ids', requireAuth, async (request, response, next) => {
     try {
         const userId = requireUserId(request, response);
         if (!userId)
@@ -293,14 +454,14 @@ app.get("/api/account/favorite-ids", requireAuth, async (request, response, next
         next(error);
     }
 });
-app.post("/api/account/favorites/:carId", requireAuth, async (request, response, next) => {
+app.post('/api/account/favorites/:carId', requireAuth, async (request, response, next) => {
     try {
         const userId = requireUserId(request, response);
         if (!userId)
             return;
-        const carId = getRouteParam(request, "carId");
+        const carId = getRouteParam(request, 'carId');
         if (!carId) {
-            response.status(400).json({ message: "Некорректный идентификатор автомобиля" });
+            response.status(400).json({ message: 'Некорректный идентификатор автомобиля' });
             return;
         }
         response.status(201).json(await addFavorite(userId, carId));
@@ -309,14 +470,14 @@ app.post("/api/account/favorites/:carId", requireAuth, async (request, response,
         next(error);
     }
 });
-app.delete("/api/account/favorites/:carId", requireAuth, async (request, response, next) => {
+app.delete('/api/account/favorites/:carId', requireAuth, async (request, response, next) => {
     try {
         const userId = requireUserId(request, response);
         if (!userId)
             return;
-        const carId = getRouteParam(request, "carId");
+        const carId = getRouteParam(request, 'carId');
         if (!carId) {
-            response.status(400).json({ message: "Некорректный идентификатор автомобиля" });
+            response.status(400).json({ message: 'Некорректный идентификатор автомобиля' });
             return;
         }
         response.json(await removeFavorite(userId, carId));
@@ -325,7 +486,7 @@ app.delete("/api/account/favorites/:carId", requireAuth, async (request, respons
         next(error);
     }
 });
-app.get("/api/account/me", requireAuth, async (request, response, next) => {
+app.get('/api/account/me', requireAuth, async (request, response, next) => {
     try {
         const userId = requireUserId(request, response);
         if (!userId)
@@ -337,7 +498,7 @@ app.get("/api/account/me", requireAuth, async (request, response, next) => {
         next(error);
     }
 });
-app.patch("/api/account/me", requireAuth, async (request, response, next) => {
+app.patch('/api/account/me', requireAuth, async (request, response, next) => {
     try {
         const userId = requireUserId(request, response);
         if (!userId)
@@ -349,25 +510,25 @@ app.patch("/api/account/me", requireAuth, async (request, response, next) => {
         next(error);
     }
 });
-app.post("/api/account/avatar", express.raw({
-    type: ["image/jpeg", "image/png", "image/webp", "image/gif"],
-    limit: "6mb",
+app.post('/api/account/avatar', express.raw({
+    type: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+    limit: '6mb'
 }), requireAuth, async (request, response, next) => {
     try {
         const userId = requireUserId(request, response);
         if (!userId)
             return;
-        const mimeType = request.header("content-type");
+        const mimeType = request.header('content-type');
         if (!mimeType || !Buffer.isBuffer(request.body) || request.body.length === 0) {
-            response.status(400).json({ message: "Файл аватара не передан" });
+            response.status(400).json({ message: 'Файл аватара не передан' });
             return;
         }
-        const baseUrl = `${request.protocol}://${request.get("host")}`;
+        const baseUrl = `${request.protocol}://${request.get('host')}`;
         const user = await updateAccountAvatar({
             userId,
             body: request.body,
             mimeType,
-            baseUrl,
+            baseUrl
         });
         response.json(user);
     }
@@ -375,7 +536,7 @@ app.post("/api/account/avatar", express.raw({
         next(error);
     }
 });
-app.get("/api/account/verification", requireAuth, async (request, response, next) => {
+app.get('/api/account/verification', requireAuth, async (request, response, next) => {
     try {
         const userId = requireUserId(request, response);
         if (!userId)
@@ -387,18 +548,18 @@ app.get("/api/account/verification", requireAuth, async (request, response, next
         next(error);
     }
 });
-app.post("/api/account/verification/files/:documentType", express.raw({
-    type: ["image/jpeg", "image/png", "application/pdf"],
-    limit: "12mb",
+app.post('/api/account/verification/files/:documentType', express.raw({
+    type: ['image/jpeg', 'image/png', 'application/pdf'],
+    limit: '12mb'
 }), requireAuth, async (request, response, next) => {
     try {
         const userId = requireUserId(request, response);
         if (!userId)
             return;
-        const mimeType = request.header("content-type");
-        const originalName = request.header("x-file-name") ?? "document";
+        const mimeType = request.header('content-type');
+        const originalName = request.header('x-file-name') ?? 'document';
         if (!mimeType || !Buffer.isBuffer(request.body) || request.body.length === 0) {
-            response.status(400).json({ message: "Файл документа не передан" });
+            response.status(400).json({ message: 'Файл документа не передан' });
             return;
         }
         const result = await uploadVerificationFile({
@@ -406,7 +567,7 @@ app.post("/api/account/verification/files/:documentType", express.raw({
             documentType: request.params.documentType,
             body: request.body,
             mimeType,
-            originalName,
+            originalName
         });
         response.json(result);
     }
@@ -414,7 +575,7 @@ app.post("/api/account/verification/files/:documentType", express.raw({
         next(error);
     }
 });
-app.post("/api/account/verification/submit", requireAuth, async (request, response, next) => {
+app.post('/api/account/verification/submit', requireAuth, async (request, response, next) => {
     try {
         const userId = requireUserId(request, response);
         if (!userId)
@@ -426,7 +587,7 @@ app.post("/api/account/verification/submit", requireAuth, async (request, respon
         next(error);
     }
 });
-app.post("/api/auth/register", authRateLimit, async (request, response, next) => {
+app.post('/api/auth/register', authRateLimit, async (request, response, next) => {
     try {
         const result = await createUser(request.body);
         response.status(201).json(result);
@@ -435,7 +596,7 @@ app.post("/api/auth/register", authRateLimit, async (request, response, next) =>
         next(error);
     }
 });
-app.post("/api/auth/login", authRateLimit, async (request, response, next) => {
+app.post('/api/auth/login', authRateLimit, async (request, response, next) => {
     try {
         const result = await loginUser(request.body);
         response.json(result);
@@ -444,7 +605,7 @@ app.post("/api/auth/login", authRateLimit, async (request, response, next) => {
         next(error);
     }
 });
-app.post("/api/auth/reset-password", authRateLimit, async (request, response, next) => {
+app.post('/api/auth/reset-password', authRateLimit, async (request, response, next) => {
     try {
         const result = await requestPasswordReset(request.body);
         response.json(result);
@@ -453,7 +614,7 @@ app.post("/api/auth/reset-password", authRateLimit, async (request, response, ne
         next(error);
     }
 });
-app.post("/api/auth/refresh", async (request, response, next) => {
+app.post('/api/auth/refresh', async (request, response, next) => {
     try {
         const result = await refreshUserSession(request.body);
         response.json(result);
@@ -462,7 +623,7 @@ app.post("/api/auth/refresh", async (request, response, next) => {
         next(error);
     }
 });
-app.post("/api/auth/logout", async (request, response, next) => {
+app.post('/api/auth/logout', async (request, response, next) => {
     try {
         const result = await logoutUser(request.body);
         response.json(result);
@@ -474,50 +635,49 @@ app.post("/api/auth/logout", async (request, response, next) => {
 app.use((error, _request, response, _next) => {
     if (error instanceof ZodError) {
         response.status(400).json({
-            message: "Некорректные данные запроса",
-            issues: error.issues,
+            message: 'Некорректные данные запроса',
+            issues: error.issues
         });
         return;
     }
-    if ("status" in error) {
+    if ('status' in error) {
         response.status(error.status).json({
-            message: error.message,
+            message: error.message
         });
         return;
     }
-    if ("type" in error && error.type === "entity.too.large") {
+    if ('type' in error && error.type === 'entity.too.large') {
         response.status(413).json({
-            message: "Файл слишком большой. Максимум 6 МБ.",
+            message: 'Файл слишком большой. Максимум 6 МБ.'
         });
         return;
     }
-    if (error instanceof Error && error.message === "CORS_ORIGIN_NOT_ALLOWED") {
+    if (error instanceof Error && error.message === 'CORS_ORIGIN_NOT_ALLOWED') {
         response.status(403).json({
-            message: "Origin не разрешён политикой CORS",
+            message: 'Origin не разрешён политикой CORS'
         });
         return;
     }
-    if (error instanceof Error &&
-        error.message.startsWith("ENV_VALIDATION_FAILED:")) {
+    if (error instanceof Error && error.message.startsWith('ENV_VALIDATION_FAILED:')) {
         response.status(500).json({
-            message: "Сервер запущен с некорректной конфигурацией окружения",
+            message: 'Сервер запущен с некорректной конфигурацией окружения'
         });
         return;
     }
-    if (error instanceof Error && error.message === "UNSUPPORTED_AVATAR_TYPE") {
+    if (error instanceof Error && error.message === 'UNSUPPORTED_AVATAR_TYPE') {
         response.status(400).json({
-            message: "Поддерживаются только JPG, PNG, WEBP и GIF.",
+            message: 'Поддерживаются только JPG, PNG, WEBP и GIF.'
         });
         return;
     }
-    if (error instanceof Error && error.message === "UNSUPPORTED_VERIFICATION_TYPE") {
+    if (error instanceof Error && error.message === 'UNSUPPORTED_VERIFICATION_TYPE') {
         response.status(400).json({
-            message: "Для верификации поддерживаются только PDF, JPG и PNG.",
+            message: 'Для верификации поддерживаются только PDF, JPG и PNG.'
         });
         return;
     }
     response.status(500).json({
-        message: "Внутренняя ошибка сервера",
+        message: 'Внутренняя ошибка сервера'
     });
 });
 app.listen(port, () => {

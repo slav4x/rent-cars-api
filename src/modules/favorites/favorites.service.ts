@@ -14,7 +14,7 @@ export async function getFavoriteCars(userId: string) {
     const idSet = new Set(favoriteIds);
 
     return (await listCars())
-        .filter((car: CarRecord) => idSet.has(car.id))
+        .filter((car: CarRecord) => idSet.has(car.id) && !car.isArchived)
         .sort(
             (left: CarRecord, right: CarRecord) =>
                 favoriteIds.indexOf(left.id) - favoriteIds.indexOf(right.id),
@@ -30,6 +30,10 @@ export async function addFavorite(userId: string, carId: string) {
     const car = await findCarById(carId);
 
     if (!car) {
+        throw createError(404, "Автомобиль не найден");
+    }
+
+    if (car.isArchived) {
         throw createError(404, "Автомобиль не найден");
     }
 

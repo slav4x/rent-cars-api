@@ -30,14 +30,14 @@ export async function createCarRecord(car) {
                 body_type_id, seat_count, video_url, horsepower, zero_to_hundred, fuel_type,
                 transmission_type, description_html, price_per_day, price_2_7_days,
                 price_from_7_days, price_from_30_days, price_from_60_days, overage_price_per_km,
-                seo_title, seo_description_html, media_urls, created_at, updated_at
+                seo_title, seo_description_html, is_archived, media_urls, created_at, updated_at
             )
             VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8,
                 $9, $10, $11, $12, $13, $14,
                 $15, $16, $17, $18,
                 $19, $20, $21, $22,
-                $23, $24, $25, $26, $27
+                $23, $24, $25, $26, $27, $28
             )
         `, [
         car.id,
@@ -64,6 +64,7 @@ export async function createCarRecord(car) {
         car.overagePricePerKm,
         car.seoTitle,
         car.seoDescriptionHtml,
+        car.isArchived ? 1 : 0,
         JSON.stringify(car.mediaUrls),
         car.createdAt,
         car.updatedAt,
@@ -97,9 +98,10 @@ export async function updateCarRecord(car) {
                 overage_price_per_km = $21,
                 seo_title = $22,
                 seo_description_html = $23,
-                media_urls = $24,
-                updated_at = $25
-            WHERE id = $26
+                is_archived = $24,
+                media_urls = $25,
+                updated_at = $26
+            WHERE id = $27
         `, [
         car.publicSlug,
         car.rentProgId,
@@ -124,43 +126,91 @@ export async function updateCarRecord(car) {
         car.overagePricePerKm,
         car.seoTitle,
         car.seoDescriptionHtml,
+        car.isArchived ? 1 : 0,
         JSON.stringify(car.mediaUrls),
         car.updatedAt,
         car.id,
     ]);
     return car;
 }
+export async function countBookingsByCarId(carId) {
+    const row = await queryFirst(`
+            SELECT COUNT(*)::int AS count
+            FROM bookings
+            WHERE car_id = $1
+        `, [carId]);
+    return row?.count ?? 0;
+}
+export async function countActiveBookingsByCarId(carId, nowIso) {
+    const row = await queryFirst(`
+            SELECT COUNT(*)::int AS count
+            FROM bookings
+            WHERE car_id = $1
+              AND return_at > $2
+        `, [carId, nowIso]);
+    return row?.count ?? 0;
+}
+export async function deleteFavoritesByCarId(carId) {
+    await execute(`
+            DELETE FROM user_favorites
+            WHERE car_id = $1
+        `, [carId]);
+}
+export async function deleteCarRecord(id) {
+    await execute(`
+            DELETE FROM cars
+            WHERE id = $1
+        `, [id]);
+}
+export async function updateCarCityRecord(id, cityId, updatedAt) {
+    await execute(`
+            UPDATE cars
+            SET
+                city_id = $1,
+                updated_at = $2
+            WHERE id = $3
+        `, [cityId, updatedAt, id]);
+}
+export async function updateCarArchiveRecord(id, isArchived, updatedAt) {
+    await execute(`
+            UPDATE cars
+            SET
+                is_archived = $1,
+                updated_at = $2
+            WHERE id = $3
+        `, [isArchived ? 1 : 0, updatedAt, id]);
+}
 export async function listCarCategories() {
     return queryRows(`
-            SELECT id, name
+            SELECT id, slug, name, seo_title AS "seoTitle", seo_text AS "seoText", sort_order AS "sortOrder"
             FROM car_categories
             ORDER BY sort_order ASC, name ASC
         `);
 }
 export async function listCarCities() {
     return queryRows(`
-            SELECT id, name
+            SELECT id, name, subdomain, seo_title AS "seoTitle", seo_text AS "seoText", address, phone, email, map, sort_order AS "sortOrder"
             FROM car_cities
             ORDER BY sort_order ASC, name ASC
         `);
 }
 export async function listCarBrands() {
     return queryRows(`
-            SELECT id, name
+            SELECT id, slug, name, image_url AS "imageUrl", seo_title AS "seoTitle", seo_text AS "seoText", sort_order AS "sortOrder"
             FROM car_brands
             ORDER BY sort_order ASC, name ASC
         `);
 }
 export async function listCarColors() {
     return queryRows(`
-            SELECT id, name
+            SELECT id, name, slug, hex, sort_order AS "sortOrder"
             FROM car_colors
             ORDER BY sort_order ASC, name ASC
         `);
 }
 export async function listCarBodyTypes() {
     return queryRows(`
-            SELECT id, name
+            SELECT id, name, slug, sort_order AS "sortOrder"
             FROM car_body_types
             ORDER BY sort_order ASC, name ASC
         `);
@@ -191,6 +241,7 @@ function mapCar(row) {
         overagePricePerKm: row.overage_price_per_km,
         seoTitle: row.seo_title,
         seoDescriptionHtml: row.seo_description_html,
+        isArchived: Boolean(row.is_archived),
         mediaUrls: parseMediaUrls(row.media_urls),
         createdAt: row.created_at,
         updatedAt: row.updated_at,

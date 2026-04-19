@@ -41,6 +41,7 @@ export type CarRecord = {
     overagePricePerKm: number;
     seoTitle: string | null;
     seoDescriptionHtml: string;
+    isArchived: boolean;
     mediaUrls: string[];
     createdAt: string;
     updatedAt: string;
@@ -71,6 +72,7 @@ type CarRow = {
     overage_price_per_km: number;
     seo_title: string | null;
     seo_description_html: string;
+    is_archived: number;
     media_urls: string;
     created_at: string;
     updated_at: string;
@@ -119,14 +121,14 @@ export async function createCarRecord(car: CarRecord) {
                 body_type_id, seat_count, video_url, horsepower, zero_to_hundred, fuel_type,
                 transmission_type, description_html, price_per_day, price_2_7_days,
                 price_from_7_days, price_from_30_days, price_from_60_days, overage_price_per_km,
-                seo_title, seo_description_html, media_urls, created_at, updated_at
+                seo_title, seo_description_html, is_archived, media_urls, created_at, updated_at
             )
             VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8,
                 $9, $10, $11, $12, $13, $14,
                 $15, $16, $17, $18,
                 $19, $20, $21, $22,
-                $23, $24, $25, $26, $27
+                $23, $24, $25, $26, $27, $28
             )
         `,
         [
@@ -154,6 +156,7 @@ export async function createCarRecord(car: CarRecord) {
             car.overagePricePerKm,
             car.seoTitle,
             car.seoDescriptionHtml,
+            car.isArchived ? 1 : 0,
             JSON.stringify(car.mediaUrls),
             car.createdAt,
             car.updatedAt,
@@ -191,9 +194,10 @@ export async function updateCarRecord(car: CarRecord) {
                 overage_price_per_km = $21,
                 seo_title = $22,
                 seo_description_html = $23,
-                media_urls = $24,
-                updated_at = $25
-            WHERE id = $26
+                is_archived = $24,
+                media_urls = $25,
+                updated_at = $26
+            WHERE id = $27
         `,
         [
             car.publicSlug,
@@ -219,6 +223,7 @@ export async function updateCarRecord(car: CarRecord) {
             car.overagePricePerKm,
             car.seoTitle,
             car.seoDescriptionHtml,
+            car.isArchived ? 1 : 0,
             JSON.stringify(car.mediaUrls),
             car.updatedAt,
             car.id,
@@ -226,6 +231,86 @@ export async function updateCarRecord(car: CarRecord) {
     );
 
     return car;
+}
+
+export async function countBookingsByCarId(carId: string) {
+    const row = await queryFirst<{ count: number }>(
+        `
+            SELECT COUNT(*)::int AS count
+            FROM bookings
+            WHERE car_id = $1
+        `,
+        [carId],
+    );
+
+    return row?.count ?? 0;
+}
+
+export async function countActiveBookingsByCarId(
+    carId: string,
+    nowIso: string,
+) {
+    const row = await queryFirst<{ count: number }>(
+        `
+            SELECT COUNT(*)::int AS count
+            FROM bookings
+            WHERE car_id = $1
+              AND return_at > $2
+        `,
+        [carId, nowIso],
+    );
+
+    return row?.count ?? 0;
+}
+
+export async function deleteFavoritesByCarId(carId: string) {
+    await execute(
+        `
+            DELETE FROM user_favorites
+            WHERE car_id = $1
+        `,
+        [carId],
+    );
+}
+
+export async function deleteCarRecord(id: string) {
+    await execute(
+        `
+            DELETE FROM cars
+            WHERE id = $1
+        `,
+        [id],
+    );
+}
+
+export async function updateCarCityRecord(id: string, cityId: string, updatedAt: string) {
+    await execute(
+        `
+            UPDATE cars
+            SET
+                city_id = $1,
+                updated_at = $2
+            WHERE id = $3
+        `,
+        [cityId, updatedAt, id],
+    );
+}
+
+export async function updateCarArchiveRecord(
+    id: string,
+    isArchived: boolean,
+    updatedAt: string,
+) {
+    await execute(
+        `
+            UPDATE cars
+            SET
+                is_archived = $1,
+                updated_at = $2
+            WHERE id = $3
+        `,
+        [isArchived ? 1 : 0, updatedAt, id],
+    );
 }
 
 export async function listCarCategories() {
@@ -304,6 +389,7 @@ function mapCar(row: CarRow): CarRecord {
         overagePricePerKm: row.overage_price_per_km,
         seoTitle: row.seo_title,
         seoDescriptionHtml: row.seo_description_html,
+        isArchived: Boolean(row.is_archived),
         mediaUrls: parseMediaUrls(row.media_urls),
         createdAt: row.created_at,
         updatedAt: row.updated_at,

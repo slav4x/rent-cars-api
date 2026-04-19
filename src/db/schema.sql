@@ -208,6 +208,7 @@ CREATE TABLE IF NOT EXISTS cars (
     overage_price_per_km INTEGER NOT NULL DEFAULT 0,
     seo_title TEXT,
     seo_description_html TEXT NOT NULL DEFAULT '<p></p>',
+    is_archived INTEGER NOT NULL DEFAULT 0,
     media_urls TEXT NOT NULL DEFAULT '[]',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -223,6 +224,9 @@ CREATE INDEX IF NOT EXISTS idx_cars_public_slug
 
 CREATE INDEX IF NOT EXISTS idx_cars_city_id
     ON cars(city_id);
+
+ALTER TABLE cars
+    ADD COLUMN IF NOT EXISTS is_archived INTEGER NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS user_favorites (
     user_id TEXT NOT NULL,

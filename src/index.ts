@@ -29,6 +29,9 @@ import {
 	getPublicCarCities,
 	getCarsForPanel,
 	getCarsForPublic,
+	moveCarToCity,
+	removeCar,
+	setCarArchiveState,
 	updateCar
 } from './modules/cars/cars.service.js';
 import {
@@ -436,6 +439,59 @@ app.patch('/api/panel/cars/:id', requirePanelRole, async (request, response, nex
 		}
 
 		response.json(await updateCar(carId, request.body));
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.patch('/api/panel/cars/:id/city', requirePanelRole, async (request, response, next) => {
+	try {
+		const carId = getRouteParam(request, 'id');
+		if (!carId) {
+			response.status(400).json({ message: 'Некорректный идентификатор автомобиля' });
+			return;
+		}
+
+		const cityId = typeof request.body?.cityId === 'string' ? request.body.cityId.trim() : '';
+		if (!cityId) {
+			response.status(400).json({ message: 'Некорректный идентификатор города' });
+			return;
+		}
+
+		response.json(await moveCarToCity(carId, cityId));
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.patch('/api/panel/cars/:id/archive', requirePanelRole, async (request, response, next) => {
+	try {
+		const carId = getRouteParam(request, 'id');
+		if (!carId) {
+			response.status(400).json({ message: 'Некорректный идентификатор автомобиля' });
+			return;
+		}
+
+		if (typeof request.body?.isArchived !== 'boolean') {
+			response.status(400).json({ message: 'Некорректное состояние архива' });
+			return;
+		}
+
+		response.json(await setCarArchiveState(carId, request.body.isArchived));
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.delete('/api/panel/cars/:id', requirePanelRole, async (request, response, next) => {
+	try {
+		const carId = getRouteParam(request, 'id');
+		if (!carId) {
+			response.status(400).json({ message: 'Некорректный идентификатор автомобиля' });
+			return;
+		}
+
+		response.json(await removeCar(carId));
 	} catch (error) {
 		next(error);
 	}

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createCarRecord, findCarById, findCarByPublicSlug, listCarBodyTypes, listCarBrands, listCarCategories, listCarCities, listCarColors, listCars, updateCarRecord, } from "./cars.repository.js";
+import { countActiveBookingsByCarId, countBookingsByCarId, createCarRecord, deleteCarRecord, deleteFavoritesByCarId, findCarById, findCarByPublicSlug, listCarBodyTypes, listCarBrands, listCarCategories, listCarCities, listCarColors, listCars, updateCarArchiveRecord, updateCarCityRecord, updateCarRecord, } from "./cars.repository.js";
 import { createError } from "../auth/auth.service.js";
 const fuelTypeSchema = z.enum(["petrol", "diesel", "hybrid"]);
 const transmissionTypeSchema = z.enum(["automatic", "robot", "manual"]);
@@ -45,6 +45,9 @@ export async function getPublicCarCities() {
 export async function getPublicCarCategories() {
     return listCarCategories();
 }
+export async function getPublicCarBrands() {
+    return listCarBrands();
+}
 export async function getCarsForPanel() {
     const lookups = await buildCarLookups();
     return (await listCars()).map((car) => sanitizeCar(car, lookups));
@@ -58,11 +61,16 @@ export async function getCarForPanel(id) {
 }
 export async function getCarsForPublic() {
     const lookups = await buildCarLookups();
-    return (await listCars()).map((car) => sanitizeCar(car, lookups));
+    return (await listCars())
+        .filter((car) => !car.isArchived)
+        .map((car) => sanitizeCar(car, lookups));
 }
 export async function getCarByPublicSlug(publicSlug) {
     const car = await findCarByPublicSlug(publicSlug);
     if (!car) {
+        throw createError(404, "Автомобиль не найден");
+    }
+    if (car.isArchived) {
         throw createError(404, "Автомобиль не найден");
     }
     return sanitizeCar(car, await buildCarLookups());
@@ -98,6 +106,7 @@ export async function createCar(payload) {
         overagePricePerKm: data.overagePricePerKm,
         seoTitle: normalizeOptional(data.seoTitle),
         seoDescriptionHtml: data.seoDescriptionHtml || "<p></p>",
+        isArchived: false,
         mediaUrls: data.mediaUrls,
         createdAt: now,
         updatedAt: now,
@@ -139,9 +148,59 @@ export async function updateCar(id, payload) {
         overagePricePerKm: data.overagePricePerKm,
         seoTitle: normalizeOptional(data.seoTitle),
         seoDescriptionHtml: data.seoDescriptionHtml || "<p></p>",
+        isArchived: car.isArchived,
         mediaUrls: data.mediaUrls,
         updatedAt: new Date().toISOString(),
     }), lookups);
+}
+export async function removeCar(id) {
+    const car = await findCarById(id);
+    if (!car) {
+        throw createError(404, "Автомобиль не найден");
+    }
+    const bookingsCount = await countBookingsByCarId(id);
+    if (bookingsCount > 0) {
+        throw createError(409, "Нельзя удалить автомобиль, у которого есть бронирования");
+    }
+    await deleteFavoritesByCarId(id);
+    await deleteCarRecord(id);
+    return { ok: true };
+}
+export async function moveCarToCity(id, cityId) {
+    const car = await findCarById(id);
+    if (!car) {
+        throw createError(404, "Автомобиль не найден");
+    }
+    const cities = await listCarCities();
+    const cityExists = cities.some((city) => city.id === cityId);
+    if (!cityExists) {
+        throw createError(404, "Город не найден");
+    }
+    const now = new Date().toISOString();
+    const activeBookingsCount = await countActiveBookingsByCarId(id, now);
+    if (activeBookingsCount > 0) {
+        throw createError(409, "Нельзя переместить автомобиль, у которого есть активные бронирования");
+    }
+    const updatedAt = now;
+    await updateCarCityRecord(id, cityId, updatedAt);
+    return sanitizeCar({
+        ...car,
+        cityId,
+        updatedAt,
+    }, await buildCarLookups());
+}
+export async function setCarArchiveState(id, isArchived) {
+    const car = await findCarById(id);
+    if (!car) {
+        throw createError(404, "Автомобиль не найден");
+    }
+    const updatedAt = new Date().toISOString();
+    await updateCarArchiveRecord(id, isArchived, updatedAt);
+    return sanitizeCar({
+        ...car,
+        isArchived,
+        updatedAt,
+    }, await buildCarLookups());
 }
 export function sanitizeCar(car, lookups) {
     return {
@@ -153,6 +212,7 @@ export function sanitizeCar(car, lookups) {
         categoryName: lookups?.categories.get(car.categoryId) ?? car.categoryId,
         cityId: car.cityId,
         cityName: lookups?.cities.get(car.cityId) ?? car.cityId,
+        citySubdomain: lookups?.citySubdomains.get(car.cityId) ?? undefined,
         brandId: car.brandId,
         brandName: lookups?.brands.get(car.brandId) ?? car.brandId,
         colorId: car.colorId,
@@ -176,6 +236,7 @@ export function sanitizeCar(car, lookups) {
         overagePricePerKm: car.overagePricePerKm,
         seoTitle: car.seoTitle ?? undefined,
         seoDescriptionHtml: car.seoDescriptionHtml,
+        isArchived: car.isArchived,
         mediaUrls: car.mediaUrls,
         createdAt: car.createdAt,
         updatedAt: car.updatedAt,
@@ -216,6 +277,10 @@ async function buildCarLookups() {
         cities: new Map((await listCarCities()).map((option) => [
             option.id,
             option.name,
+        ])),
+        citySubdomains: new Map((await listCarCities()).map((option) => [
+            option.id,
+            option.subdomain ?? null,
         ])),
         brands: new Map((await listCarBrands()).map((option) => [
             option.id,

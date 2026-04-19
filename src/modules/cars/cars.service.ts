@@ -1,6 +1,10 @@
 import { z } from "zod";
 import {
+    countActiveBookingsByCarId,
+    countBookingsByCarId,
     createCarRecord,
+    deleteCarRecord,
+    deleteFavoritesByCarId,
     findCarById,
     findCarByPublicSlug,
     listCarBodyTypes,
@@ -9,6 +13,8 @@ import {
     listCarCities,
     listCarColors,
     listCars,
+    updateCarArchiveRecord,
+    updateCarCityRecord,
     updateCarRecord,
     type CarRecord,
 } from "./cars.repository.js";
@@ -84,13 +90,19 @@ export async function getCarForPanel(id: string) {
 
 export async function getCarsForPublic() {
     const lookups = await buildCarLookups();
-    return (await listCars()).map((car: CarRecord) => sanitizeCar(car, lookups));
+    return (await listCars())
+        .filter((car: CarRecord) => !car.isArchived)
+        .map((car: CarRecord) => sanitizeCar(car, lookups));
 }
 
 export async function getCarByPublicSlug(publicSlug: string) {
     const car = await findCarByPublicSlug(publicSlug);
 
     if (!car) {
+        throw createError(404, "Автомобиль не найден");
+    }
+
+    if (car.isArchived) {
         throw createError(404, "Автомобиль не найден");
     }
 
@@ -130,6 +142,7 @@ export async function createCar(payload: unknown) {
             overagePricePerKm: data.overagePricePerKm,
             seoTitle: normalizeOptional(data.seoTitle),
             seoDescriptionHtml: data.seoDescriptionHtml || "<p></p>",
+            isArchived: false,
             mediaUrls: data.mediaUrls,
             createdAt: now,
             updatedAt: now,
@@ -178,10 +191,90 @@ export async function updateCar(id: string, payload: unknown) {
             overagePricePerKm: data.overagePricePerKm,
             seoTitle: normalizeOptional(data.seoTitle),
             seoDescriptionHtml: data.seoDescriptionHtml || "<p></p>",
+            isArchived: car.isArchived,
             mediaUrls: data.mediaUrls,
             updatedAt: new Date().toISOString(),
         }),
         lookups,
+    );
+}
+
+export async function removeCar(id: string) {
+    const car = await findCarById(id);
+
+    if (!car) {
+        throw createError(404, "Автомобиль не найден");
+    }
+
+    const bookingsCount = await countBookingsByCarId(id);
+
+    if (bookingsCount > 0) {
+        throw createError(
+            409,
+            "Нельзя удалить автомобиль, у которого есть бронирования",
+        );
+    }
+
+    await deleteFavoritesByCarId(id);
+    await deleteCarRecord(id);
+
+    return { ok: true };
+}
+
+export async function moveCarToCity(id: string, cityId: string) {
+    const car = await findCarById(id);
+
+    if (!car) {
+        throw createError(404, "Автомобиль не найден");
+    }
+
+    const cities = await listCarCities();
+    const cityExists = cities.some((city) => city.id === cityId);
+
+    if (!cityExists) {
+        throw createError(404, "Город не найден");
+    }
+
+    const now = new Date().toISOString();
+    const activeBookingsCount = await countActiveBookingsByCarId(id, now);
+
+    if (activeBookingsCount > 0) {
+        throw createError(
+            409,
+            "Нельзя переместить автомобиль, у которого есть активные бронирования",
+        );
+    }
+
+    const updatedAt = now;
+    await updateCarCityRecord(id, cityId, updatedAt);
+
+    return sanitizeCar(
+        {
+            ...car,
+            cityId,
+            updatedAt,
+        },
+        await buildCarLookups(),
+    );
+}
+
+export async function setCarArchiveState(id: string, isArchived: boolean) {
+    const car = await findCarById(id);
+
+    if (!car) {
+        throw createError(404, "Автомобиль не найден");
+    }
+
+    const updatedAt = new Date().toISOString();
+    await updateCarArchiveRecord(id, isArchived, updatedAt);
+
+    return sanitizeCar(
+        {
+            ...car,
+            isArchived,
+            updatedAt,
+        },
+        await buildCarLookups(),
     );
 }
 
@@ -222,6 +315,7 @@ export function sanitizeCar(
         overagePricePerKm: car.overagePricePerKm,
         seoTitle: car.seoTitle ?? undefined,
         seoDescriptionHtml: car.seoDescriptionHtml,
+        isArchived: car.isArchived,
         mediaUrls: car.mediaUrls,
         createdAt: car.createdAt,
         updatedAt: car.updatedAt,
